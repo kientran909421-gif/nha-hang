@@ -9,7 +9,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { site } from "@/data/site";
+import type { SiteSettings } from "@/lib/content";
 
 const navigation = [
   { label: "Thực đơn", href: "/thuc-don" },
@@ -18,7 +18,7 @@ const navigation = [
   { label: "Liên hệ", href: "/lien-he" },
 ];
 
-export function SiteHeader() {
+export function SiteHeader({ site }: { site: SiteSettings }) {
   return (
     <header className="border-b border-border/70 bg-background">
       <div className="mx-auto flex h-18 w-full max-w-7xl items-center justify-between px-5 lg:px-8">
@@ -40,7 +40,7 @@ export function SiteHeader() {
               {item.label}
             </Link>
           ))}
-          <Button render={<Link href="/dat-ban" />}>Đặt bàn</Button>
+          <Button nativeButton={false} render={<Link href="/dat-ban" />}>Đặt bàn</Button>
         </nav>
 
         <div className="md:hidden">

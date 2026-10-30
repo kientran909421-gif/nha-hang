@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { site } from "@/data/site";
+import type { SiteSettings } from "@/lib/content";
+import { TrackedPhoneLink } from "@/components/tracked-links";
 
-export function SiteFooter() {
+export function SiteFooter({ site }: { site: SiteSettings }) {
   return (
     <footer className="border-t border-border/70 bg-foreground py-10 text-background">
       <div className="mx-auto grid w-full max-w-7xl gap-8 px-5 sm:grid-cols-2 lg:grid-cols-4 lg:px-8">
@@ -15,12 +16,12 @@ export function SiteFooter() {
         </div>
         <div>
           <p className="font-medium">Hotline</p>
-          <a
+          <TrackedPhoneLink
             href={site.phoneHref}
             className="mt-3 block text-sm text-background/70 hover:text-background"
           >
             {site.phone}
-          </a>
+          </TrackedPhoneLink>
         </div>
         <div>
           <p className="font-medium">Theo dõi chúng tôi</p>

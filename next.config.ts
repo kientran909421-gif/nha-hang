@@ -7,6 +7,17 @@ const nextConfig: NextConfig = {
   },
   cacheComponents: true,
   partialPrefetching: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: new URL(
+          process.env.NEXT_PUBLIC_SUPABASE_URL ??
+            "https://uemzeptlqjbnurclfkkx.supabase.co",
+        ).hostname,
+      },
+    ],
+  },
   turbopack: {
     rules: {
       "*.css": {

@@ -9,7 +9,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -26,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { MenuCategory, MenuItem, MenuTag } from "@/data/menu";
 import { menuItems } from "@/data/menu";
+import { track } from "@/lib/tracking";
 
 const categories: Array<"Tất cả" | MenuCategory> = [
   "Tất cả",
@@ -58,6 +58,7 @@ function MenuDetail({ item }: { item: MenuItem }) {
     <Dialog>
       <DialogTrigger
         className="block h-full w-full text-left"
+        onClick={() => track("menu_item_view", { path: `/thuc-don?item=${item.id}` })}
         aria-label={`Xem chi tiết ${item.name}`}
       >
         <Card className="h-full transition-shadow hover:shadow-lg">
@@ -115,7 +116,7 @@ function MenuDetail({ item }: { item: MenuItem }) {
             <p className="text-lg font-semibold text-accent">
               {formatPrice(item.price)}
             </p>
-            <Button render={<Link href="/dat-ban" />}>Đặt bàn</Button>
+            <Button nativeButton={false} render={<Link href="/dat-ban" />}>Đặt bàn</Button>
           </DialogFooter>
         </div>
       </DialogContent>

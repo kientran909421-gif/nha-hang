@@ -1,7 +1,7 @@
-import { supabase } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/server";
 
 export async function GET() {
-  const { count, error } = await supabase
+  const { count, error } = await supabaseAdmin
     .from("tables")
     .select("*", { count: "exact", head: true })
     .eq("active", true);
