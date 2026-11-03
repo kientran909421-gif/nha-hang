@@ -1,9 +1,14 @@
-import { requireAdmin } from "@/lib/auth";
+import { getCurrentStaff } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
+import { AdminForbidden } from "@/components/admin-forbidden";
 import { getAdminMenu, getAdminMenuCategories } from "@/lib/content";
 import { AdminMenuTable } from "@/components/admin-menu-table";
 
 export default async function AdminMenuPage() {
-  await requireAdmin();
+  const staff = await getCurrentStaff();
+  if (!staff || !hasPermission(staff.role, "menu.edit")) {
+    return <AdminForbidden />;
+  }
   const [menu, categories] = await Promise.all([
     getAdminMenu(),
     getAdminMenuCategories(),

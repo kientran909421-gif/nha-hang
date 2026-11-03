@@ -1,8 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 const openingHourSchema = z.object({
@@ -154,7 +154,7 @@ export async function saveSiteSettings(
   _previousState: SaveSettingsState,
   formData: FormData,
 ): Promise<SaveSettingsState> {
-  await requireAdmin();
+  await requirePermission("settings.edit");
   let openingHours: unknown;
   try {
     openingHours = JSON.parse(String(formData.get("openingHours") ?? "[]"));
@@ -221,7 +221,7 @@ export async function saveHomepageSettings(
   _previousState: SaveSettingsState,
   formData: FormData,
 ): Promise<SaveSettingsState> {
-  await requireAdmin();
+  await requirePermission("content.edit");
   const parsed = homepageSchema.safeParse({
     heroTitle: formData.get("heroTitle"),
     heroTagline: formData.get("heroTagline"),
@@ -238,7 +238,7 @@ export async function saveSeoSettings(
   _previousState: SaveSettingsState,
   formData: FormData,
 ): Promise<SaveSettingsState> {
-  await requireAdmin();
+  await requirePermission("settings.edit");
   const parsed = seoSchema.safeParse({
     seoTitle: formData.get("seoTitle"),
     seoDescription: formData.get("seoDescription"),
@@ -278,7 +278,7 @@ function getImageType(bytes: Uint8Array) {
 }
 
 export async function uploadSiteImage(formData: FormData) {
-  await requireAdmin();
+  await requirePermission("content.edit");
   const file = formData.get("file");
   const oldImageUrl = String(formData.get("oldImageUrl") ?? "");
   if (!(file instanceof File)) return { success: false, message: "Vui lòng chọn một ảnh hợp lệ." };
@@ -311,7 +311,7 @@ export async function uploadSiteImage(formData: FormData) {
 }
 
 export async function savePromotion(formData: FormData) {
-  await requireAdmin();
+  await requirePermission("promotions.edit");
   const parsed = promotionSchema.safeParse({
     id: String(formData.get("id") ?? ""),
     title: formData.get("title"),
@@ -340,33 +340,36 @@ export async function savePromotion(formData: FormData) {
   const { error } = await query;
   if (error) return { success: false, message: error.message };
   revalidatePath("/");
+  updateTag("promotions");
   return { success: true, message: "Đã lưu ưu đãi" };
 }
 
 export async function deletePromotion(id: string, imageUrl?: string) {
-  await requireAdmin();
+  await requirePermission("promotions.edit");
   if (!id) return { success: false, message: "Ưu đãi không hợp lệ." };
   const { error } = await supabaseAdmin.from("promotions").delete().eq("id", id);
   if (error) return { success: false, message: error.message };
   const oldPath = imageUrl ? storagePathFromPublicUrl(imageUrl) : null;
   if (oldPath) await supabaseAdmin.storage.from("site-images").remove([oldPath]);
   revalidatePath("/");
+  updateTag("promotions");
   return { success: true, message: "Đã xóa ưu đãi" };
 }
 
 export async function togglePromotion(id: string, active: boolean) {
-  await requireAdmin();
+  await requirePermission("promotions.edit");
   const { error } = await supabaseAdmin
     .from("promotions")
     .update({ active })
     .eq("id", id);
   if (error) return { success: false, message: error.message };
   revalidatePath("/");
+  updateTag("promotions");
   return { success: true };
 }
 
 export async function movePromotion(id: string, direction: "up" | "down") {
-  await requireAdmin();
+  await requirePermission("promotions.edit");
   const { data, error } = await supabaseAdmin
     .from("promotions")
     .select("id, sort_order")
@@ -392,11 +395,12 @@ export async function movePromotion(id: string, direction: "up" | "down") {
     .eq("id", target.id);
   if (swapError) return { success: false, message: swapError.message };
   revalidatePath("/");
+  updateTag("promotions");
   return { success: true };
 }
 
 export async function saveTestimonial(formData: FormData) {
-  await requireAdmin();
+  await requirePermission("content.edit");
   const parsed = testimonialSchema.safeParse({
     id: String(formData.get("id") ?? ""),
     name: formData.get("name"),
@@ -417,7 +421,7 @@ export async function saveTestimonial(formData: FormData) {
 }
 
 export async function deleteTestimonial(id: string) {
-  await requireAdmin();
+  await requirePermission("content.edit");
   const { error } = await supabaseAdmin.from("testimonials").delete().eq("id", id);
   if (error) return { success: false, message: error.message };
   revalidatePath("/");
@@ -425,7 +429,7 @@ export async function deleteTestimonial(id: string) {
 }
 
 export async function toggleTestimonial(id: string, active: boolean) {
-  await requireAdmin();
+  await requirePermission("content.edit");
   const { error } = await supabaseAdmin.from("testimonials").update({ active }).eq("id", id);
   if (error) return { success: false, message: error.message };
   revalidatePath("/");
@@ -433,7 +437,7 @@ export async function toggleTestimonial(id: string, active: boolean) {
 }
 
 export async function moveTestimonial(id: string, direction: "up" | "down") {
-  await requireAdmin();
+  await requirePermission("content.edit");
   const { data, error } = await supabaseAdmin.from("testimonials").select("id, sort_order").order("sort_order", { ascending: true });
   if (error) return { success: false, message: error.message };
   const index = (data ?? []).findIndex((item) => String(item.id) === id);
@@ -448,4 +452,3 @@ export async function moveTestimonial(id: string, direction: "up" | "down") {
   revalidatePath("/");
   return { success: true };
 }
-

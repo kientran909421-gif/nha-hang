@@ -5,24 +5,27 @@ import { usePathname } from "next/navigation";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { signOutAdmin } from "@/app/admin/actions";
+import { hasAnyPermission, hasPermission, type Permission, type StaffRole } from "@/lib/permissions";
 
-const navigation = [
-  { label: "Tổng quan", href: "/admin" },
-  { label: "Nội dung website", href: "/admin/noi-dung" },
-  { label: "Thực đơn", href: "/admin/thuc-don" },
-  { label: "Đặt bàn", href: "/admin/dat-ban" },
+const navigation: Array<{ label: string; href: string; permissions: Permission[] }> = [
+  { label: "Tổng quan", href: "/admin", permissions: ["dashboard.bookings", "dashboard.traffic"] },
+  { label: "Nội dung website", href: "/admin/noi-dung", permissions: ["content.edit", "settings.edit", "promotions.edit"] },
+  { label: "Thực đơn", href: "/admin/thuc-don", permissions: ["menu.availability", "menu.edit"] },
+  { label: "Đặt bàn", href: "/admin/dat-ban", permissions: ["dashboard.bookings", "bookings.manage"] },
+  { label: "Tài khoản", href: "/admin/tai-khoan", permissions: ["customers.view", "audit.view"] },
+  { label: "Nhân viên", href: "/admin/nhan-vien", permissions: ["staff.manage"] },
 ];
 
 function isActive(pathname: string, href: string) {
   return href === "/admin" ? pathname === href : pathname.startsWith(href);
 }
 
-function Navigation({ onNavigate }: { onNavigate?: () => void }) {
+function Navigation({ onNavigate, role }: { onNavigate?: () => void; role: StaffRole }) {
   const pathname = usePathname();
 
   return (
     <nav className="grid gap-1" aria-label="Điều hướng quản trị">
-      {navigation.map((item) => (
+      {navigation.filter((item) => hasAnyPermission(role, item.permissions)).map((item) => (
         <Link
           key={item.href}
           href={item.href}
@@ -39,7 +42,7 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function AdminSidebar({ email }: { email: string }) {
+export function AdminSidebar({ email, role }: { email: string; role: StaffRole }) {
   return (
     <>
       <aside className="hidden w-64 shrink-0 border-r border-border bg-background p-5 md:block">
@@ -49,7 +52,7 @@ export function AdminSidebar({ email }: { email: string }) {
           </p>
           <p className="mt-1 truncate text-xs text-muted-foreground">{email}</p>
         </div>
-        <Navigation />
+        <Navigation role={role} />
         <Link
           href="/"
           className="mt-4 block rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -81,7 +84,7 @@ export function AdminSidebar({ email }: { email: string }) {
           <SheetContent showCloseButton className="p-6">
             <SheetTitle>Quản trị</SheetTitle>
             <div className="mt-8">
-              <Navigation />
+              <Navigation role={role} />
               <Link
                 href="/"
                 className="mt-4 block rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"

@@ -2,7 +2,7 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 export type UpdateMenuAvailabilityState = {
@@ -159,7 +159,7 @@ function menuImageType(bytes: Uint8Array) {
 export async function uploadMenuImage(
   formData: FormData,
 ): Promise<UploadMenuImageState> {
-  await requireAdmin();
+  await requirePermission("menu.edit");
   const file = formData.get("file");
 
   if (!(file instanceof File)) {
@@ -205,7 +205,7 @@ export async function uploadMenuImage(
 export async function deleteUploadedMenuImage(
   imageUrl: string,
 ): Promise<UpdateMenuAvailabilityState> {
-  await requireAdmin();
+  await requirePermission("menu.edit");
   const path = menuStoragePathFromPublicUrl(imageUrl);
   if (!path) {
     return { success: false, message: "Ảnh tải lên không hợp lệ." };
@@ -228,7 +228,7 @@ export async function updateMenuAvailability(
   itemId: string,
   available: boolean,
 ): Promise<UpdateMenuAvailabilityState> {
-  await requireAdmin();
+  await requirePermission("menu.availability");
 
   if (!itemId.trim()) {
     return { success: false, message: "Mã món không hợp lệ." };
@@ -264,7 +264,7 @@ export async function updateMenuAvailability(
 }
 
 export async function saveMenuItem(values: MenuFormValues): Promise<MenuFormState> {
-  await requireAdmin();
+  await requirePermission("menu.edit");
   const parsed = menuFormSchema.safeParse(values);
   if (!parsed.success) {
     return {
@@ -398,7 +398,7 @@ export async function reorderMenuItem(
   itemId: string,
   direction: "up" | "down",
 ): Promise<UpdateMenuAvailabilityState> {
-  await requireAdmin();
+  await requirePermission("menu.edit");
   if (!itemId.trim()) return { success: false, message: "Mã món không hợp lệ." };
 
   const { data: current, error: currentError } = await supabaseAdmin
@@ -448,7 +448,7 @@ const categorySchema = z.object({
 export async function saveMenuCategory(
   values: { id?: string; name: string; active: boolean },
 ): Promise<MenuCategoryActionState> {
-  await requireAdmin();
+  await requirePermission("menu.edit");
   const parsed = categorySchema.safeParse(values);
   if (!parsed.success) {
     return { success: false, message: "Vui lòng kiểm tra lại danh mục.", errors: validationErrors(parsed.error) };
@@ -492,7 +492,7 @@ export async function saveMenuCategory(
 }
 
 export async function updateMenuCategoryActive(id: string, active: boolean): Promise<MenuCategoryActionState> {
-  await requireAdmin();
+  await requirePermission("menu.edit");
   const { data, error } = await supabaseAdmin
     .from("menu_categories")
     .update({ active })
@@ -505,7 +505,7 @@ export async function updateMenuCategoryActive(id: string, active: boolean): Pro
 }
 
 export async function reorderMenuCategory(id: string, direction: "up" | "down"): Promise<MenuCategoryActionState> {
-  await requireAdmin();
+  await requirePermission("menu.edit");
   const { data: current, error } = await supabaseAdmin
     .from("menu_categories")
     .select("id, sort_order")
@@ -531,7 +531,7 @@ export async function reorderMenuCategory(id: string, direction: "up" | "down"):
 }
 
 export async function deleteMenuCategory(id: string): Promise<MenuCategoryActionState> {
-  await requireAdmin();
+  await requirePermission("menu.edit");
   const { count, error: countError } = await supabaseAdmin
     .from("menu_items")
     .select("id", { count: "exact", head: true })
@@ -548,7 +548,7 @@ export async function deleteMenuCategory(id: string): Promise<MenuCategoryAction
 }
 
 export async function deleteMenuItem(itemId: string): Promise<UpdateMenuAvailabilityState> {
-  await requireAdmin();
+  await requirePermission("menu.edit");
   if (!itemId.trim()) {
     return { success: false, message: "Mã món không hợp lệ." };
   }

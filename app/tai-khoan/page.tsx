@@ -1,22 +1,33 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { DeleteAccountButton } from "@/components/delete-account-button";
 import { Button } from "@/components/ui/button";
+import { site } from "@/data/site";
 import { requireCustomer } from "@/lib/auth";
+import { getSiteSettings } from "@/lib/content";
 import { getUserReservations, reservationStatusLabels } from "@/lib/reservations";
 
-function isUpcoming(date: string, time: string) {
-  return new Date(`${date}T${time}`).getTime() >= Date.now();
+function vietnamTimestamp(date: string, time: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  const [hour, minute, second = 0] = time.split(":").map(Number);
+  return Date.UTC(year, month - 1, day, hour, minute, second);
+}
+
+function isUpcoming(date: string, time: string, now: number) {
+  return vietnamTimestamp(date, time) >= now;
 }
 
 async function AccountContent() {
   const user = await requireCustomer();
-  const reservations = await getUserReservations(user.id);
+  const [reservations, siteSettings] = await Promise.all([
+    getUserReservations(user.id),
+    getSiteSettings(),
+  ]);
+  const now = Date.now();
   const metadata = user.user_metadata ?? {};
   const avatar = String(metadata.avatar_url ?? metadata.picture ?? "");
   const name = String(metadata.full_name ?? metadata.name ?? user.email ?? "Khách hàng");
-  const upcoming = reservations.filter((item) => isUpcoming(item.reservationDate, item.startTime));
-  const past = reservations.filter((item) => !isUpcoming(item.reservationDate, item.startTime));
+  const upcoming = reservations.filter((item) => isUpcoming(item.reservationDate, item.startTime, now));
+  const past = reservations.filter((item) => !isUpcoming(item.reservationDate, item.startTime, now));
 
   return (
     <main className="mx-auto max-w-4xl px-5 py-16 lg:px-8">
@@ -43,11 +54,17 @@ async function AccountContent() {
         )}
       </section>
 
-      <section className="mt-10 border-t pt-8">
-        <h2 className="font-heading text-2xl font-semibold">Xóa tài khoản</h2>
-        <p className="mt-2 text-sm text-muted-foreground">Các đặt bàn sẽ không còn gắn với tài khoản này.</p>
-        <DeleteAccountButton />
-      </section>
+      <p className="mt-10 border-t pt-8 text-xs text-muted-foreground">
+        Muốn xóa tài khoản hoặc dữ liệu cá nhân? Vui lòng liên hệ nhà hàng qua email{" "}
+        <a className="underline underline-offset-2" href={`mailto:${siteSettings.email || site.email}`}>
+          {siteSettings.email || site.email}
+        </a>{" "}
+        hoặc số điện thoại{" "}
+        <a className="underline underline-offset-2" href={`tel:${siteSettings.phoneHref || site.phoneHref}`}>
+          {siteSettings.phone || site.phone}
+        </a>
+        .
+      </p>
     </main>
   );
 }

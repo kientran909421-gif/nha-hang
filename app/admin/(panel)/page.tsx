@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/auth";
+import { getCurrentStaff } from "@/lib/auth";
+import { hasAnyPermission } from "@/lib/permissions";
+import { AdminForbidden } from "@/components/admin-forbidden";
 import {
   getDashboardData,
   normalizeRange,
@@ -19,7 +21,10 @@ export default async function AdminOverviewPage({
 }: {
   searchParams: Promise<{ range?: string }>;
 }) {
-  await requireAdmin();
+  const staff = await getCurrentStaff();
+  if (!staff || !hasAnyPermission(staff.role, ["dashboard.bookings", "dashboard.traffic"])) {
+    return <AdminForbidden />;
+  }
   const range = normalizeRange((await searchParams).range);
   const data = await getDashboardData(range);
 

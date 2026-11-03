@@ -1,4 +1,17 @@
+import { getCurrentStaff } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
+import { AdminForbidden } from "@/components/admin-forbidden";
+
 export default function AdminBookingsPage() {
+  return <AdminBookingsContent />;
+}
+
+async function AdminBookingsContent() {
+  const staff = await getCurrentStaff();
+  if (!staff || !hasPermission(staff.role, "dashboard.bookings")) {
+    return <AdminForbidden />;
+  }
+
   return (
     <section>
       <p className="text-sm text-muted-foreground">Quản trị</p>

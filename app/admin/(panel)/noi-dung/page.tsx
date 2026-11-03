@@ -1,14 +1,19 @@
 import { AdminContentForm } from "@/components/admin-content-form";
 import { getSiteSettings } from "@/lib/content";
 import { getAdminPromotions, getAdminTestimonials } from "@/lib/content";
-import { requireAdmin } from "@/lib/auth";
+import { getCurrentStaff } from "@/lib/auth";
+import { hasAnyPermission } from "@/lib/permissions";
+import { AdminForbidden } from "@/components/admin-forbidden";
 
 export default function AdminContentPage() {
   return <AdminContentPageContent />;
 }
 
 async function AdminContentPageContent() {
-  await requireAdmin();
+  const staff = await getCurrentStaff();
+  if (!staff || !hasAnyPermission(staff.role, ["content.edit", "settings.edit", "promotions.edit"])) {
+    return <AdminForbidden />;
+  }
   const site = await getSiteSettings();
   const promotions = await getAdminPromotions();
   const testimonials = await getAdminTestimonials();

@@ -73,7 +73,17 @@ export async function proxy(request: NextRequest) {
   }
 
   const email = user.email?.trim().toLowerCase();
-  if (!user.email_confirmed_at || !email || !allowedAdminEmails().includes(email)) {
+  let hasStaffAccess = Boolean(user.email_confirmed_at && email && allowedAdminEmails().includes(email));
+  if (!hasStaffAccess && user.email_confirmed_at && email) {
+    const { data: staff } = await supabase
+      .from("staff_members")
+      .select("role")
+      .ilike("email", email)
+      .eq("active", true)
+      .maybeSingle();
+    hasStaffAccess = Boolean(staff?.role && ["owner", "manager", "host", "marketing"].includes(String(staff.role)));
+  }
+  if (!hasStaffAccess) {
     if (isAdminApi) {
       return copyCookies(
         response,
