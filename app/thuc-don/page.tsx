@@ -1,6 +1,9 @@
 import { MenuBrowser } from "@/components/menu-browser";
+import { getMenu } from "@/lib/content";
 
-export default function MenuPage() {
+export default async function MenuPage() {
+  const menu = await getMenu();
+
   return (
     <main>
       <section className="bg-[#F1E9DE] px-5 py-20 text-center lg:px-8 lg:py-28">
@@ -16,7 +19,7 @@ export default function MenuPage() {
         </p>
       </section>
       <section className="py-16 lg:py-24">
-        <MenuBrowser />
+        <MenuBrowser items={menu} />
       </section>
     </main>
   );

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { MobileCta } from "@/components/mobile-cta";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { HeaderAuth } from "@/components/header-auth";
 import { Tracker } from "@/components/tracker";
 import { getSiteSettings } from "@/lib/content";
 
@@ -53,7 +54,19 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <Suspense fallback={null}>
           <Tracker />
         </Suspense>
-        <SiteHeader site={site} />
+        <SiteHeader
+          site={site}
+          authMenu={
+            <Suspense fallback={null}>
+              <HeaderAuth />
+            </Suspense>
+          }
+          mobileAuthMenu={
+            <Suspense fallback={null}>
+              <HeaderAuth mobile />
+            </Suspense>
+          }
+        />
         <main className="flex-1">{children}</main>
         <SiteFooter site={site} />
         <MobileCta site={site} />

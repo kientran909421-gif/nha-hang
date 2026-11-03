@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -18,7 +19,15 @@ const navigation = [
   { label: "Liên hệ", href: "/lien-he" },
 ];
 
-export function SiteHeader({ site }: { site: SiteSettings }) {
+export function SiteHeader({
+  site,
+  authMenu,
+  mobileAuthMenu,
+}: {
+  site: SiteSettings;
+  authMenu: ReactNode;
+  mobileAuthMenu: ReactNode;
+}) {
   return (
     <header className="border-b border-border/70 bg-background">
       <div className="mx-auto flex h-18 w-full max-w-7xl items-center justify-between px-5 lg:px-8">
@@ -40,6 +49,7 @@ export function SiteHeader({ site }: { site: SiteSettings }) {
               {item.label}
             </Link>
           ))}
+          {authMenu}
           <Button nativeButton={false} render={<Link href="/dat-ban" />}>Đặt bàn</Button>
         </nav>
 
@@ -76,6 +86,7 @@ export function SiteHeader({ site }: { site: SiteSettings }) {
                 >
                   Đặt bàn
                 </SheetClose>
+                {mobileAuthMenu}
               </nav>
             </SheetContent>
           </Sheet>

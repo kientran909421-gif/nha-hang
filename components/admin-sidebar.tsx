@@ -50,6 +50,12 @@ export function AdminSidebar({ email }: { email: string }) {
           <p className="mt-1 truncate text-xs text-muted-foreground">{email}</p>
         </div>
         <Navigation />
+        <Link
+          href="/"
+          className="mt-4 block rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          Xem website
+        </Link>
         <form action={signOutAdmin} className="mt-8">
           <button
             type="submit"
@@ -76,6 +82,12 @@ export function AdminSidebar({ email }: { email: string }) {
             <SheetTitle>Quản trị</SheetTitle>
             <div className="mt-8">
               <Navigation />
+              <Link
+                href="/"
+                className="mt-4 block rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                Xem website
+              </Link>
               <form action={signOutAdmin} className="mt-8">
                 <button
                   type="submit"

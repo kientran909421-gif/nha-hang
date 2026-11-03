@@ -24,7 +24,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { MenuCategory, MenuItem, MenuTag } from "@/data/menu";
-import { menuItems } from "@/data/menu";
 import { track } from "@/lib/tracking";
 
 const categories: Array<"Tất cả" | MenuCategory> = [
@@ -38,13 +37,13 @@ const categories: Array<"Tất cả" | MenuCategory> = [
 const filters: Array<{ label: string; tag: MenuTag }> = [
   { label: "Chay", tag: "chay" },
   { label: "Cay", tag: "cay" },
-  { label: "Bán chạy", tag: "bán chạy" },
+  { label: "Bán chạy", tag: "ban-chay" },
 ];
 
 const tagLabels: Record<MenuTag, string> = {
   chay: "Chay",
   cay: "Cay",
-  "bán chạy": "Bán chạy",
+  "ban-chay": "Bán chạy",
 };
 
 const formatPrice = (price: number) =>
@@ -61,7 +60,7 @@ function MenuDetail({ item }: { item: MenuItem }) {
         onClick={() => track("menu_item_view", { path: `/thuc-don?item=${item.id}` })}
         aria-label={`Xem chi tiết ${item.name}`}
       >
-        <Card className="h-full transition-shadow hover:shadow-lg">
+        <Card className={`h-full transition-shadow hover:shadow-lg ${!item.available ? "opacity-60" : ""}`}>
           <div className="relative aspect-[4/3] overflow-hidden">
             <Image
               src={item.image}
@@ -69,6 +68,11 @@ function MenuDetail({ item }: { item: MenuItem }) {
               fill
               className="object-cover transition-transform duration-500 group-hover/card:scale-105"
             />
+            {!item.available ? (
+              <span className="absolute top-3 right-3 rounded-full bg-background/90 px-3 py-1 text-xs font-medium">
+                Tạm hết
+              </span>
+            ) : null}
           </div>
           <CardHeader className="gap-1">
             <CardTitle className="line-clamp-1 text-lg">{item.name}</CardTitle>
@@ -116,7 +120,9 @@ function MenuDetail({ item }: { item: MenuItem }) {
             <p className="text-lg font-semibold text-accent">
               {formatPrice(item.price)}
             </p>
-            <Button nativeButton={false} render={<Link href="/dat-ban" />}>Đặt bàn</Button>
+            {item.available ? (
+              <Button nativeButton={false} render={<Link href="/dat-ban" />}>Đặt bàn</Button>
+            ) : null}
           </DialogFooter>
         </div>
       </DialogContent>
@@ -124,7 +130,7 @@ function MenuDetail({ item }: { item: MenuItem }) {
   );
 }
 
-export function MenuBrowser() {
+export function MenuBrowser({ items }: { items: MenuItem[] }) {
   const [category, setCategory] = useState<"Tất cả" | MenuCategory>("Tất cả");
   const [activeFilters, setActiveFilters] = useState<MenuTag[]>([]);
   const [query, setQuery] = useState("");
@@ -132,7 +138,7 @@ export function MenuBrowser() {
   const filteredItems = useMemo(() => {
     const normalizedQuery = normalizeText(query.trim());
 
-    return menuItems.filter((item) => {
+    return items.filter((item) => {
       const matchesCategory =
         category === "Tất cả" || item.category === category;
       const matchesQuery =
@@ -144,7 +150,7 @@ export function MenuBrowser() {
 
       return matchesCategory && matchesQuery && matchesFilters;
     });
-  }, [activeFilters, category, query]);
+  }, [activeFilters, category, items, query]);
 
   function toggleFilter(tag: MenuTag) {
     setActiveFilters((current) =>

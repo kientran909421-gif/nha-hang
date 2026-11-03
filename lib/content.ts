@@ -1,10 +1,12 @@
-import { unstable_cache } from "next/cache";
+import { cacheTag, unstable_cache } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import {
   defaultPromotions,
   defaultTestimonials,
   site as defaultSite,
 } from "@/data/site";
+import { menuItems as defaultMenuItems } from "@/data/menu";
+import type { MenuCategory, MenuItem, MenuTag } from "@/data/menu";
 
 export type SiteSettings = {
   name: string;
@@ -53,6 +55,143 @@ export type Testimonial = {
   active?: boolean;
   sortOrder?: number;
 };
+
+export type AdminMenuCategory = {
+  id: string;
+  name: string;
+  slug: string;
+  active: boolean;
+  sortOrder: number;
+};
+
+const menuCategories = new Set<MenuCategory>([
+  "Khai vị",
+  "Món chính",
+  "Tráng miệng",
+  "Đồ uống",
+]);
+const menuTags = new Set<MenuTag>(["chay", "cay", "ban-chay"]);
+
+function isMenuCategory(value: unknown): value is MenuCategory {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isMenuTag(value: unknown): value is MenuTag {
+  return typeof value === "string" && menuTags.has(value as MenuTag);
+}
+
+export async function getMenu(): Promise<MenuItem[]> {
+  "use cache";
+
+  cacheTag("menu");
+
+  const { data, error } = await supabaseAdmin
+    .from("menu_items")
+    .select(
+      "id, name, description, price, image_url, tags, allergens, available, sort_order, category:menu_categories!inner(name, slug, active)",
+    )
+    .eq("menu_categories.active", true)
+    .order("sort_order", { ascending: true })
+    .order("id", { ascending: true });
+
+  if (error) {
+    console.error("Không thể đọc menu từ Supabase:", error.message);
+    return [...defaultMenuItems];
+  }
+
+  return ((data ?? []) as Array<Record<string, unknown>>)
+    .map((row): MenuItem | null => {
+      const category = row.category as Record<string, unknown> | null;
+      const categoryName = category?.name;
+      if (!isMenuCategory(categoryName)) {
+        return null;
+      }
+
+      const tags = Array.isArray(row.tags)
+        ? row.tags.filter(isMenuTag)
+        : [];
+      const allergens = Array.isArray(row.allergens)
+        ? row.allergens.filter((value): value is string => typeof value === "string")
+        : [];
+
+      return {
+        id: String(row.id),
+        name: String(row.name ?? ""),
+        shortDescription: String(row.short_description ?? row.description ?? ""),
+        description: String(row.description ?? ""),
+        price: Number(row.price ?? 0),
+        category: categoryName,
+        image: String(row.image_url ?? ""),
+        tags,
+        allergens,
+        available: row.available !== false,
+      };
+    })
+    .filter((item): item is MenuItem => item !== null);
+}
+
+export async function getAdminMenu(): Promise<MenuItem[]> {
+  const { data, error } = await supabaseAdmin
+    .from("menu_items")
+    .select(
+      "id, name, description, price, image_url, tags, allergens, available, sort_order, category:menu_categories!inner(name, slug, active)",
+    )
+    .order("sort_order", { ascending: true })
+    .order("id", { ascending: true });
+
+  if (error) {
+    console.error("Không thể đọc menu quản trị từ Supabase:", error.message);
+    throw new Error(`Không thể đọc thực đơn: ${error.message}`);
+  }
+
+  return ((data ?? []) as Array<Record<string, unknown>>)
+    .map((row): MenuItem | null => {
+      const category = row.category as Record<string, unknown> | null;
+      const categoryName = category?.name;
+      if (!isMenuCategory(categoryName)) {
+        return null;
+      }
+
+      return {
+        id: String(row.id),
+        name: String(row.name ?? ""),
+        shortDescription: String(row.description ?? ""),
+        description: String(row.description ?? ""),
+        price: Number(row.price ?? 0),
+        category: categoryName,
+        image: String(row.image_url ?? ""),
+        tags: Array.isArray(row.tags) ? row.tags.filter(isMenuTag) : [],
+        allergens: Array.isArray(row.allergens)
+          ? row.allergens.filter(
+              (value): value is string => typeof value === "string",
+            )
+          : [],
+        available: row.available !== false,
+      };
+    })
+    .filter((item): item is MenuItem => item !== null);
+}
+
+export async function getAdminMenuCategories(): Promise<AdminMenuCategory[]> {
+  const { data, error } = await supabaseAdmin
+    .from("menu_categories")
+    .select("id, name, slug, active, sort_order")
+    .order("sort_order", { ascending: true })
+    .order("id", { ascending: true });
+
+  if (error) {
+    console.error("Không thể đọc danh mục menu quản trị:", error.message);
+    throw new Error(`Không thể đọc danh mục thực đơn: ${error.message}`);
+  }
+
+  return (data ?? []).map((category) => ({
+    id: String(category.id),
+    name: String(category.name),
+    slug: String(category.slug),
+    active: category.active === true,
+    sortOrder: Number(category.sort_order ?? 0),
+  }));
+}
 
 type SiteSettingsRow = Partial<{
   data: Record<string, unknown>;
@@ -315,4 +454,3 @@ export async function getTestimonials() {
   const testimonials = await testimonialsCache();
   return testimonials.length > 0 ? testimonials : [...defaultTestimonials];
 }
-

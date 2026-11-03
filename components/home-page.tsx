@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
+import type { MenuItem } from "@/data/menu";
 import type { SiteSettings, Promotion, Testimonial } from "@/lib/content";
-import { signatureDishes } from "@/data/sample";
 import { track } from "@/lib/tracking";
 
 const formatPrice = (price: number) =>
@@ -16,10 +16,12 @@ export function HomePage({
   site,
   promotions,
   testimonials,
+  signatureDishes,
 }: {
   site: SiteSettings;
   promotions: Promotion[];
   testimonials: Testimonial[];
+  signatureDishes: MenuItem[];
 }) {
   const router = useRouter();
   const [guests, setGuests] = useState("2");

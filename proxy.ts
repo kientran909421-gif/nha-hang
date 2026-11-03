@@ -19,6 +19,9 @@ function copyCookies(from: NextResponse, to: NextResponse) {
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isLogin = path === "/admin/login";
+  const isAdminPage = path === "/admin" || path.startsWith("/admin/");
+  const isAdminApi = path === "/api/admin" || path.startsWith("/api/admin/");
+  const isAdminRoute = isAdminPage || isAdminApi;
   console.log("[admin-auth] proxy: bắt đầu", { path });
 
   const response = NextResponse.next({ request });
@@ -50,12 +53,18 @@ export async function proxy(request: NextRequest) {
     hasError: Boolean(error),
   });
 
-  if (isLogin) {
+  if (isLogin || !isAdminRoute) {
     console.log("[admin-auth] proxy: cho phép trang login");
     return response;
   }
 
   if (error || !user) {
+    if (isAdminApi) {
+      return copyCookies(
+        response,
+        NextResponse.json({ error: "Bạn chưa đăng nhập." }, { status: 401 }),
+      );
+    }
     console.log("[admin-auth] proxy: chưa đăng nhập, chuyển tới login");
     return copyCookies(
       response,
@@ -64,7 +73,13 @@ export async function proxy(request: NextRequest) {
   }
 
   const email = user.email?.trim().toLowerCase();
-  if (!email || !allowedAdminEmails().includes(email)) {
+  if (!user.email_confirmed_at || !email || !allowedAdminEmails().includes(email)) {
+    if (isAdminApi) {
+      return copyCookies(
+        response,
+        NextResponse.json({ error: "Bạn không có quyền quản trị." }, { status: 403 }),
+      );
+    }
     console.log("[admin-auth] proxy: không có quyền", { email: email ?? null });
     await supabase.auth.signOut();
     return copyCookies(
@@ -78,5 +93,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin", "/admin/:path*"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

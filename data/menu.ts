@@ -1,10 +1,6 @@
-export type MenuCategory =
-  | "Khai vị"
-  | "Món chính"
-  | "Tráng miệng"
-  | "Đồ uống";
+export type MenuCategory = string;
 
-export type MenuTag = "chay" | "cay" | "bán chạy";
+export type MenuTag = "chay" | "cay" | "ban-chay";
 
 export type MenuItem = {
   id: string;
@@ -16,7 +12,8 @@ export type MenuItem = {
   image: string;
   tags: MenuTag[];
   allergens: string[];
-};
+  available: boolean;
+}
 
 export const menuItems: MenuItem[] = [
   {
@@ -28,8 +25,9 @@ export const menuItems: MenuItem[] = [
     price: 125000,
     category: "Khai vị",
     image: "/images/mon-1.jpg",
-    tags: ["cay", "bán chạy"],
+    tags: ["cay", "ban-chay"],
     allergens: ["Tôm", "Đậu phộng", "Nước mắm"],
+    available: true,
   },
   {
     id: "khai-vi-02",
@@ -42,6 +40,7 @@ export const menuItems: MenuItem[] = [
     image: "/images/mon-2.jpg",
     tags: ["chay"],
     allergens: ["Đậu nành"],
+    available: true,
   },
   {
     id: "khai-vi-03",
@@ -52,8 +51,9 @@ export const menuItems: MenuItem[] = [
     price: 135000,
     category: "Khai vị",
     image: "/images/mon-3.jpg",
-    tags: ["bán chạy"],
+    tags: ["ban-chay"],
     allergens: ["Tôm", "Mực", "Cua", "Trứng", "Bột mì"],
+    available: true,
   },
   {
     id: "mon-chinh-01",
@@ -64,8 +64,9 @@ export const menuItems: MenuItem[] = [
     price: 185000,
     category: "Món chính",
     image: "/images/mon-4.jpg",
-    tags: ["cay", "bán chạy"],
+    tags: ["cay", "ban-chay"],
     allergens: ["Sữa", "Mù tạt"],
+    available: true,
   },
   {
     id: "mon-chinh-02",
@@ -76,8 +77,9 @@ export const menuItems: MenuItem[] = [
     price: 245000,
     category: "Món chính",
     image: "/images/mon-5.jpg",
-    tags: ["cay", "bán chạy"],
+    tags: ["cay", "ban-chay"],
     allergens: ["Cá", "Nước mắm"],
+    available: true,
   },
   {
     id: "mon-chinh-03",
@@ -90,6 +92,7 @@ export const menuItems: MenuItem[] = [
     image: "/images/mon-6.jpg",
     tags: [],
     allergens: ["Tôm", "Mực", "Nghêu", "Sữa", "Bột mì"],
+    available: true,
   },
   {
     id: "mon-chinh-04",
@@ -102,6 +105,7 @@ export const menuItems: MenuItem[] = [
     image: "/images/mon-7.jpg",
     tags: ["chay"],
     allergens: ["Đậu nành"],
+    available: true,
   },
   {
     id: "mon-chinh-05",
@@ -112,8 +116,9 @@ export const menuItems: MenuItem[] = [
     price: 225000,
     category: "Món chính",
     image: "/images/mon-8.jpg",
-    tags: ["bán chạy"],
+    tags: ["ban-chay"],
     allergens: ["Mật ong", "Đậu nành"],
+    available: true,
   },
   {
     id: "trang-mieng-01",
@@ -126,6 +131,7 @@ export const menuItems: MenuItem[] = [
     image: "/images/mon-9.jpg",
     tags: ["chay"],
     allergens: ["Sữa", "Hạnh nhân"],
+    available: true,
   },
   {
     id: "trang-mieng-02",
@@ -136,8 +142,9 @@ export const menuItems: MenuItem[] = [
     price: 65000,
     category: "Tráng miệng",
     image: "/images/mon-10.jpg",
-    tags: ["bán chạy"],
+    tags: ["ban-chay"],
     allergens: ["Trứng", "Sữa"],
+    available: true,
   },
   {
     id: "do-uong-01",
@@ -150,6 +157,7 @@ export const menuItems: MenuItem[] = [
     image: "/images/mon-11.jpg",
     tags: [],
     allergens: [],
+    available: true,
   },
   {
     id: "do-uong-02",
@@ -162,5 +170,6 @@ export const menuItems: MenuItem[] = [
     image: "/images/mon-12.jpg",
     tags: ["chay"],
     allergens: [],
+    available: true,
   },
 ];
