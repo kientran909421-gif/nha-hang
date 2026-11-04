@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { AdminContentForm } from "@/components/admin-content-form";
 import { getSiteSettings } from "@/lib/content";
 import { getAdminPromotions, getAdminTestimonials } from "@/lib/content";
@@ -6,7 +7,7 @@ import { hasAnyPermission } from "@/lib/permissions";
 import { AdminForbidden } from "@/components/admin-forbidden";
 
 export default function AdminContentPage() {
-  return <AdminContentPageContent />;
+  return <Suspense fallback={<div className="min-h-96" />}><AdminContentPageContent /></Suspense>;
 }
 
 async function AdminContentPageContent() {

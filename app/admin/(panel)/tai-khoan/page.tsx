@@ -3,6 +3,7 @@ import "server-only";
 import { Suspense } from "react";
 import { getCurrentStaff } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
+import { isMasterEmail } from "@/lib/admin-email";
 import { AdminForbidden } from "@/components/admin-forbidden";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { AdminAccountsTable, type AdminAccount, type AdminAuditLog } from "@/components/admin-accounts-table";
@@ -32,7 +33,7 @@ async function AccountsContent({ searchParams }: Props) {
     throw new Error(`Không thể đọc danh sách tài khoản: ${usersError.message}`);
   }
 
-  const { data: auditRows, error: auditError } = staff.role === "owner" || staff.role === "manager"
+  const { data: auditRows, error: auditError } = staff.role === "master" || staff.role === "owner" || staff.role === "manager"
     ? await supabaseAdmin
     .from("admin_audit_log")
     .select("id, created_at, actor_email, action, target_email, details")
@@ -72,12 +73,6 @@ async function AccountsContent({ searchParams }: Props) {
     reservationsByUser.set(reservation.user_id, current);
   }
 
-  const adminEmails = new Set(
-    (process.env.ADMIN_EMAILS ?? "")
-      .split(",")
-      .map(normalized)
-      .filter(Boolean),
-  );
   const accounts = users
     .filter((user) => {
       if (!query) return true;
@@ -102,7 +97,7 @@ async function AccountsContent({ searchParams }: Props) {
         bookingCount: accountReservations.length,
         noShowCount: accountReservations.filter((item) => item.status === "no_show").length,
         banned: Boolean(user.banned_until && new Date(user.banned_until).getTime() > Date.now()),
-        isAdmin: adminEmails.has(normalized(user.email ?? "")),
+        isAdmin: isMasterEmail(user.email ?? ""),
         reservations: accountReservations.slice(0, 10),
       };
     });

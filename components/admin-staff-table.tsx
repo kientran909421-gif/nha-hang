@@ -21,6 +21,7 @@ export type AdminStaff = {
 };
 
 const roles: Array<{ value: StaffRole; label: string }> = [
+  { value: "master", label: "Master" },
   { value: "owner", label: "Owner" },
   { value: "manager", label: "Manager" },
   { value: "host", label: "Host" },
@@ -28,6 +29,7 @@ const roles: Array<{ value: StaffRole; label: string }> = [
 ];
 
 const roleDescriptions: Record<StaffRole, string> = {
+  master: "Toàn quyền hệ thống; không thể cấp hoặc chỉnh sửa qua danh sách nhân viên.",
   owner: "Toàn quyền quản trị, bao gồm nhân viên và tài khoản khách.",
   manager: "Quản lý nội dung, thực đơn, đặt bàn và khách; không quản lý nhân viên hoặc xóa khách.",
   host: "Xem số đặt bàn hôm nay, quản lý đặt bàn, trạng thái món và tra cứu tên/số điện thoại.",
@@ -94,7 +96,7 @@ export function AdminStaffTable({ staff }: { staff: AdminStaff[] }) {
           <div className="mt-6 grid gap-3 md:hidden">{rows.map((row) => <article key={row.id} className="rounded-xl border p-4"><p className="font-medium break-all">{row.email}</p><div className="mt-3 flex flex-wrap gap-2"><RoleLabel role={row.role} /><Badge variant={row.active ? "secondary" : "destructive"}>{row.active ? "Đang hoạt động" : "Đã tắt"}</Badge></div><dl className="mt-3 grid gap-1 text-sm text-muted-foreground"><div>Chi nhánh: {row.branchName}</div><div>Đăng nhập: {formatDate(row.lastSignInAt)}</div></dl><div className="mt-3"><StaffActions row={row} onChange={setConfirm} /></div></article>)}</div>
         </>
       )}
-      <Dialog open={open} onOpenChange={setOpen}><DialogContent><DialogHeader><DialogTitle>Thêm nhân viên</DialogTitle><DialogDescription>Nhân viên cần đăng nhập Google bằng đúng email này để được cấp quyền.</DialogDescription></DialogHeader><form onSubmit={submitAdd} className="grid gap-4"><Input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="email@nhahang.vn" /><Select value={role} onValueChange={(value) => setRole(value as StaffRole)}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>{roles.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select><p className="text-sm text-muted-foreground">Hệ thống chưa có dịch vụ gửi email mời. Hãy báo nhân viên đăng nhập bằng Google với email này.</p><Button type="submit" disabled={pending}>{pending ? "Đang thêm..." : "Thêm nhân viên"}</Button></form></DialogContent></Dialog>
+      <Dialog open={open} onOpenChange={setOpen}><DialogContent><DialogHeader><DialogTitle>Thêm nhân viên</DialogTitle><DialogDescription>Nhân viên cần đăng nhập Google bằng đúng email này để được cấp quyền.</DialogDescription></DialogHeader><form onSubmit={submitAdd} className="grid gap-4"><Input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="email@nhahang.vn" /><Select value={role} onValueChange={(value) => setRole(value as StaffRole)}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>{roles.filter((item) => item.value !== "master").map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select><p className="text-sm text-muted-foreground">Hệ thống chưa có dịch vụ gửi email mời. Hãy báo nhân viên đăng nhập bằng Google với email này.</p><Button type="submit" disabled={pending}>{pending ? "Đang thêm..." : "Thêm nhân viên"}</Button></form></DialogContent></Dialog>
       <Dialog open={confirm !== null} onOpenChange={(value) => { if (!value) setConfirm(null); }}><DialogContent><DialogHeader><DialogTitle>Xác nhận thay đổi</DialogTitle><DialogDescription>{confirm?.type === "role" ? `Đổi vai trò của ${confirm.row.email} thành ${roles.find((item) => item.value === confirm.nextRole)?.label}.` : `${confirm?.nextActive ? "Bật" : "Tắt"} quyền truy cập của ${confirm?.row.email}.`}</DialogDescription></DialogHeader><div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setConfirm(null)}>Hủy</Button><Button variant={confirm?.nextActive === false ? "destructive" : "default"} disabled={pending} onClick={submitChange}>{pending ? "Đang lưu..." : "Xác nhận"}</Button></div></DialogContent></Dialog>
     </section>
   );
@@ -102,5 +104,6 @@ export function AdminStaffTable({ staff }: { staff: AdminStaff[] }) {
 
 function StaffActions({ row, onChange }: { row: AdminStaff; onChange: (value: { type: "role" | "active"; row: AdminStaff; nextRole?: StaffRole; nextActive?: boolean }) => void }) {
   const [role, setRole] = useState(row.role);
+  if (row.role === "master") return <span className="text-sm text-muted-foreground">Bảo vệ hệ thống</span>;
   return <div className="flex flex-wrap gap-2"><Select value={role} onValueChange={(value) => { const nextRole = value as StaffRole; setRole(nextRole); if (nextRole !== row.role) onChange({ type: "role", row, nextRole }); }}><SelectTrigger size="sm"><SelectValue /></SelectTrigger><SelectContent>{roles.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select><Button size="sm" variant="outline" onClick={() => onChange({ type: "active", row, nextActive: !row.active })}>{row.active ? "Tắt quyền" : "Bật quyền"}</Button></div>;
 }

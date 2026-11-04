@@ -42,6 +42,7 @@ export function HomePage({
           alt="Không gian ấm cúng của nhà hàng"
           fill
           priority
+          sizes="100vw"
           className="object-cover"
         />
         <div className="absolute inset-0 bg-black/50" />
@@ -145,6 +146,7 @@ export function HomePage({
                   src={dish.image}
                   alt={dish.name}
                   fill
+                  sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
                   className="object-cover transition-transform duration-500 hover:scale-105"
                 />
               </div>
@@ -177,6 +179,7 @@ export function HomePage({
                   src={offer.imageUrl}
                   alt={offer.title}
                   fill
+                  sizes="(min-width: 768px) 50vw, 100vw"
                   className="object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent" />
@@ -198,6 +201,7 @@ export function HomePage({
             src={site.storyImageUrl}
             alt="Đầu bếp chuẩn bị món ăn trong căn bếp"
             fill
+            sizes="(min-width: 768px) 50vw, 100vw"
             className="object-cover"
           />
         </div>

@@ -1,9 +1,10 @@
+import { Suspense } from "react";
 import { getCurrentStaff } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import { AdminForbidden } from "@/components/admin-forbidden";
 
 export default function AdminBookingsPage() {
-  return <AdminBookingsContent />;
+  return <Suspense fallback={<div className="min-h-96" />}><AdminBookingsContent /></Suspense>;
 }
 
 async function AdminBookingsContent() {

@@ -1,10 +1,11 @@
+import { Suspense } from "react";
 import { getSiteSettings } from "@/lib/content";
 import {
   TrackedDirectionsLink,
   TrackedPhoneLink,
 } from "@/components/tracked-links";
 
-export default async function ContactPage() {
+async function ContactContent() {
   const site = await getSiteSettings();
 
   return (
@@ -76,4 +77,8 @@ export default async function ContactPage() {
       </section>
     </main>
   );
+}
+
+export default function ContactPage() {
+  return <Suspense fallback={<div className="min-h-screen" />}><ContactContent /></Suspense>;
 }

@@ -1,13 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseUrl } from "@/lib/supabase/url";
-
-function allowedAdminEmails() {
-  return (process.env.ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
-}
+import { isMasterEmail } from "@/lib/admin-email";
 
 function copyCookies(from: NextResponse, to: NextResponse) {
   for (const cookie of from.cookies.getAll()) {
@@ -21,8 +15,26 @@ export async function proxy(request: NextRequest) {
   const isLogin = path === "/admin/login";
   const isAdminPage = path === "/admin" || path.startsWith("/admin/");
   const isAdminApi = path === "/api/admin" || path.startsWith("/api/admin/");
+  const isProtectedRoute =
+    isAdminPage ||
+    isAdminApi ||
+    path === "/tai-khoan" ||
+    path === "/dang-nhap" ||
+    path === "/auth" ||
+    path.startsWith("/auth/");
+  const isStaticAsset =
+    path === "/api/track" ||
+    path.startsWith("/_next/") ||
+    path.startsWith("/images/") ||
+    path === "/favicon.ico" ||
+    /\.(?:jpg|jpeg|png|webp|svg|ico|css|js|txt|xml)$/i.test(path);
+  if (!isProtectedRoute || isStaticAsset) {
+    return NextResponse.next({ request });
+  }
   const isAdminRoute = isAdminPage || isAdminApi;
-  console.log("[admin-auth] proxy: bắt đầu", { path });
+  if (process.env.NODE_ENV === "development") {
+    console.log("[admin-auth] proxy: bắt đầu", { path });
+  }
 
   const response = NextResponse.next({ request });
   const supabase = createServerClient(
@@ -47,14 +59,11 @@ export async function proxy(request: NextRequest) {
     data: { user },
     error,
   } = await supabase.auth.getUser();
-  console.log("[admin-auth] proxy: getUser", {
-    path,
-    email: user?.email ?? null,
-    hasError: Boolean(error),
-  });
+  if (process.env.NODE_ENV === "development") {
+    console.log("[admin-auth] proxy: getUser", { path, hasError: Boolean(error) });
+  }
 
   if (isLogin || !isAdminRoute) {
-    console.log("[admin-auth] proxy: cho phép trang login");
     return response;
   }
 
@@ -65,7 +74,9 @@ export async function proxy(request: NextRequest) {
         NextResponse.json({ error: "Bạn chưa đăng nhập." }, { status: 401 }),
       );
     }
-    console.log("[admin-auth] proxy: chưa đăng nhập, chuyển tới login");
+    if (process.env.NODE_ENV === "development") {
+      console.log("[admin-auth] proxy: chưa đăng nhập, chuyển tới login");
+    }
     return copyCookies(
       response,
       NextResponse.redirect(new URL("/admin/login", request.url)),
@@ -73,7 +84,7 @@ export async function proxy(request: NextRequest) {
   }
 
   const email = user.email?.trim().toLowerCase();
-  let hasStaffAccess = Boolean(user.email_confirmed_at && email && allowedAdminEmails().includes(email));
+  let hasStaffAccess = Boolean(user.email_confirmed_at && email && isMasterEmail(email));
   if (!hasStaffAccess && user.email_confirmed_at && email) {
     const { data: staff } = await supabase
       .from("staff_members")
@@ -90,7 +101,9 @@ export async function proxy(request: NextRequest) {
         NextResponse.json({ error: "Bạn không có quyền quản trị." }, { status: 403 }),
       );
     }
-    console.log("[admin-auth] proxy: không có quyền", { email: email ?? null });
+    if (process.env.NODE_ENV === "development") {
+      console.log("[admin-auth] proxy: không có quyền");
+    }
     await supabase.auth.signOut();
     return copyCookies(
       response,
@@ -98,7 +111,9 @@ export async function proxy(request: NextRequest) {
     );
   }
 
-  console.log("[admin-auth] proxy: cho phép admin", { email });
+  if (process.env.NODE_ENV === "development") {
+    console.log("[admin-auth] proxy: cho phép admin");
+  }
   return response;
 }
 

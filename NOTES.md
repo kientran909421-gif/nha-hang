@@ -3,7 +3,7 @@
 ## Đã xong
 - Giao diện: layout, trang chủ, thực đơn, liên hệ
 - Supabase: bảng branches, tables, reservations, site_settings, promotions, testimonials, events, menu
-- Đăng nhập admin hoạt động (ADMIN_EMAILS)
+- Đăng nhập admin hoạt động theo MASTER_EMAIL và staff_members.active
 - Trang /admin/noi-dung có các tab Thông tin chung, Trang chủ, SEO, Ưu đãi, Đánh giá
 
 ## Lỗi đang dở
@@ -22,4 +22,4 @@
 ## Việc cần làm trên máy mới
 - Cài Node.js LTS, Git, VS Code
 - git clone, npm install
-- Tạo .env.local (4 biến: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, ADMIN_EMAILS)
+- Tạo .env.local (4 biến: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, MASTER_EMAIL)

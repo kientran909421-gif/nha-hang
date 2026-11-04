@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { z } from "zod";
 import { Input } from "@/components/ui/input";
 import { getSupabaseUrl } from "@/lib/supabase/url";
+import { recordAdminLogin, recordAdminLoginFailure } from "@/app/admin/actions";
 
 const loginSchema = z.object({
   email: z.string().trim().email("Email không hợp lệ."),
@@ -64,6 +65,7 @@ export function AdminLoginForm() {
       console.log("[admin-auth] login: gọi signInWithPassword", { email: parsed.data.email });
       const { error: signInError } = await supabase.auth.signInWithPassword(parsed.data);
       if (signInError) {
+        await recordAdminLoginFailure(parsed.data.email);
         console.log("[admin-auth] login: Supabase trả lỗi", {
           email: parsed.data.email,
           message: signInError.message,
@@ -72,6 +74,7 @@ export function AdminLoginForm() {
         return;
       }
 
+      await recordAdminLogin();
       console.log("[admin-auth] login: thành công, chuyển tới /admin", {
         email: parsed.data.email,
       });

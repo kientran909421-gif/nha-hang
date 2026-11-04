@@ -1,7 +1,8 @@
+import { Suspense } from "react";
 import { MenuBrowser } from "@/components/menu-browser";
 import { getMenu } from "@/lib/content";
 
-export default async function MenuPage() {
+async function MenuContent() {
   const menu = await getMenu();
 
   return (
@@ -23,4 +24,8 @@ export default async function MenuPage() {
       </section>
     </main>
   );
+}
+
+export default function MenuPage() {
+  return <Suspense fallback={<div className="min-h-screen" />}><MenuContent /></Suspense>;
 }

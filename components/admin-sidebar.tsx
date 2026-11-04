@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { signOutAdmin } from "@/app/admin/actions";
-import { hasAnyPermission, hasPermission, type Permission, type StaffRole } from "@/lib/permissions";
+import { hasAnyPermission, type Permission, type StaffRole } from "@/lib/permissions";
 
 const navigation: Array<{ label: string; href: string; permissions: Permission[] }> = [
   { label: "Tổng quan", href: "/admin", permissions: ["dashboard.bookings", "dashboard.traffic"] },
@@ -14,6 +14,7 @@ const navigation: Array<{ label: string; href: string; permissions: Permission[]
   { label: "Đặt bàn", href: "/admin/dat-ban", permissions: ["dashboard.bookings", "bookings.manage"] },
   { label: "Tài khoản", href: "/admin/tai-khoan", permissions: ["customers.view", "audit.view"] },
   { label: "Nhân viên", href: "/admin/nhan-vien", permissions: ["staff.manage"] },
+  { label: "Master", href: "/admin/master", permissions: ["activity.viewAll", "system.manage"] },
 ];
 
 function isActive(pathname: string, href: string) {

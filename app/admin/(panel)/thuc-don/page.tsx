@@ -1,10 +1,11 @@
+import { Suspense } from "react";
 import { getCurrentStaff } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import { AdminForbidden } from "@/components/admin-forbidden";
 import { getAdminMenu, getAdminMenuCategories } from "@/lib/content";
 import { AdminMenuTable } from "@/components/admin-menu-table";
 
-export default async function AdminMenuPage() {
+async function AdminMenuContent() {
   const staff = await getCurrentStaff();
   if (!staff || !hasPermission(staff.role, "menu.edit")) {
     return <AdminForbidden />;
@@ -24,4 +25,8 @@ export default async function AdminMenuPage() {
       <AdminMenuTable items={menu} categories={categories} />
     </section>
   );
+}
+
+export default function AdminMenuPage() {
+  return <Suspense fallback={<div className="min-h-96" />}><AdminMenuContent /></Suspense>;
 }

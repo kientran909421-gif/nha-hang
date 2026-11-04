@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { getCurrentStaff } from "@/lib/auth";
 import { hasAnyPermission } from "@/lib/permissions";
 import { AdminForbidden } from "@/components/admin-forbidden";
@@ -16,7 +17,7 @@ const ranges: Array<{ value: DashboardRange; label: string }> = [
   { value: "30d", label: "30 ngày" },
 ];
 
-export default async function AdminOverviewPage({
+async function AdminOverviewContent({
   searchParams,
 }: {
   searchParams: Promise<{ range?: string }>;
@@ -97,6 +98,12 @@ export default async function AdminOverviewPage({
       </div>
     </section>
   );
+}
+
+export default function AdminOverviewPage(props: {
+  searchParams: Promise<{ range?: string }>;
+}) {
+  return <Suspense fallback={<div className="min-h-96" />}><AdminOverviewContent {...props} /></Suspense>;
 }
 
 function MetricGrid({ metrics }: { metrics: DashboardData["metrics"] }) {

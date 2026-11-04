@@ -1,4 +1,5 @@
 import { cacheLife, cacheTag, unstable_cache } from "next/cache";
+import { connection } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import {
   defaultPromotions,
@@ -310,23 +311,20 @@ const siteSettingsCache = unstable_cache(
   { revalidate: 60, tags: ["site-settings"] },
 );
 
-async function getCachedPromotions(): Promise<Promotion[]> {
+async function getCachedPromotions(): Promise<Array<{
+  id: unknown;
+  title: unknown;
+  description?: unknown;
+  image_url?: unknown;
+  image?: unknown;
+  starts_on?: unknown;
+  ends_on?: unknown;
+  active?: unknown;
+}>> {
   "use cache";
   cacheLife({ stale: 300, revalidate: 300, expire: 3600 });
   cacheTag("promotions");
 
-  const now = new Date();
-  const vietnamNow = new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "Asia/Ho_Chi_Minh",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  }).format(now);
-  const currentTime = new Date(`${vietnamNow.replace(" ", "T")}+07:00`).getTime();
   const { data, error } = await supabaseAdmin
     .from("promotions")
     .select("*");
@@ -336,31 +334,7 @@ async function getCachedPromotions(): Promise<Promotion[]> {
     return [];
   }
 
-  return (data ?? [])
-    .filter((promotion) => {
-      const startsOn = promotion.starts_on
-        ? new Date(String(promotion.starts_on)).getTime()
-        : Number.NEGATIVE_INFINITY;
-      const endsOn = promotion.ends_on
-        ? new Date(String(promotion.ends_on)).getTime()
-        : Number.POSITIVE_INFINITY;
-      return (
-        promotion.active === true &&
-        startsOn <= currentTime &&
-        endsOn >= currentTime
-      );
-    })
-    .sort(
-      (a, b) =>
-        new Date(String(b.starts_on ?? 0)).getTime() -
-        new Date(String(a.starts_on ?? 0)).getTime(),
-    )
-    .map((promotion) => ({
-      id: String(promotion.id),
-      title: String(promotion.title),
-      description: String(promotion.description ?? ""),
-      imageUrl: String(promotion.image_url ?? promotion.image),
-    }));
+  return data ?? [];
 }
 
 const testimonialsCache = unstable_cache(
@@ -408,7 +382,29 @@ export async function getSiteSettings() {
 }
 
 export async function getPromotions() {
-  const promotions = await getCachedPromotions();
+  await connection();
+  const now = Date.now();
+  const promotions = (await getCachedPromotions())
+    .filter((promotion) => {
+      const startsOn = promotion.starts_on
+        ? new Date(String(promotion.starts_on)).getTime()
+        : Number.NEGATIVE_INFINITY;
+      const endsOn = promotion.ends_on
+        ? new Date(String(promotion.ends_on)).getTime()
+        : Number.POSITIVE_INFINITY;
+      return promotion.active === true && startsOn <= now && endsOn >= now;
+    })
+    .sort(
+      (a, b) =>
+        new Date(String(b.starts_on ?? 0)).getTime() -
+        new Date(String(a.starts_on ?? 0)).getTime(),
+    )
+    .map((promotion) => ({
+      id: String(promotion.id),
+      title: String(promotion.title),
+      description: String(promotion.description ?? ""),
+      imageUrl: String(promotion.image_url ?? promotion.image),
+    }));
   return promotions.length > 0 ? promotions : [...defaultPromotions];
 }
 

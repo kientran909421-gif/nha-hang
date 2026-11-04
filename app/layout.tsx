@@ -9,6 +9,7 @@ import { SiteHeader } from "@/components/site-header";
 import { HeaderAuth } from "@/components/header-auth";
 import { Tracker } from "@/components/tracker";
 import { getSiteSettings } from "@/lib/content";
+import { MaintenanceBanner } from "@/components/maintenance-banner";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -51,6 +52,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       )}
     >
       <body className="min-h-full flex flex-col pb-20 md:pb-0">
+        <Suspense fallback={null}><MaintenanceBanner /></Suspense>
         <Suspense fallback={null}>
           <Tracker />
         </Suspense>

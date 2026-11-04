@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasPermission } from "./permissions";
+import { canManageRole, hasPermission } from "./permissions";
 
 describe("role permissions", () => {
   it("does not allow host to edit the menu", () => {
@@ -18,5 +18,24 @@ describe("role permissions", () => {
     expect(hasPermission("owner", "staff.manage")).toBe(true);
     expect(hasPermission("owner", "customers.delete")).toBe(true);
     expect(hasPermission("owner", "audit.view")).toBe(true);
+  });
+
+  it("does not allow owner to manage master", () => {
+    expect(hasPermission("owner", "owners.manage")).toBe(false);
+    expect(canManageRole("owner", "master")).toBe(false);
+  });
+
+  it("does not allow manager to add staff", () => {
+    expect(hasPermission("manager", "staff.manage")).toBe(false);
+  });
+
+  it("does not allow anyone to create master", () => {
+    expect(canManageRole("master", "master")).toBe(false);
+    expect(canManageRole("owner", "master")).toBe(false);
+  });
+
+  it("allows master to add owner", () => {
+    expect(hasPermission("master", "owners.manage")).toBe(true);
+    expect(canManageRole("master", "owner")).toBe(true);
   });
 });

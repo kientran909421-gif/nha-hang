@@ -3,9 +3,11 @@ import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import { getSupabaseUrl } from "@/lib/supabase/url";
 
 export async function createClientForServer() {
+  await connection();
   const cookieStore = await cookies();
 
   return createServerClient(

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { HomePage } from "@/components/home-page";
 import {
   getMenu,
@@ -6,7 +7,7 @@ import {
   getTestimonials,
 } from "@/lib/content";
 
-export default async function Home() {
+async function HomeContent() {
   const [site, promotions, testimonials, menu] = await Promise.all([
     getSiteSettings(),
     getPromotions(),
@@ -24,4 +25,8 @@ export default async function Home() {
         .slice(0, 4)}
     />
   );
+}
+
+export default function Home() {
+  return <Suspense fallback={<div className="min-h-screen" />}><HomeContent /></Suspense>;
 }

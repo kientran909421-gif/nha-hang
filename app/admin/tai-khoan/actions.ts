@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requirePermission } from "@/lib/auth";
+import { isMasterEmail } from "@/lib/admin-email";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { logAdminAction } from "@/lib/admin-audit";
 
 const userIdSchema = z.string().uuid("ID tài khoản không hợp lệ.");
 const reasonSchema = z.string().trim().max(500, "Lý do không được quá 500 ký tự.").optional();
@@ -13,15 +15,6 @@ type AccountActionResult = {
   message: string;
   warning?: boolean;
 };
-
-function adminEmails() {
-  return new Set(
-    (process.env.ADMIN_EMAILS ?? "")
-      .split(",")
-      .map((email) => email.trim().toLowerCase())
-      .filter(Boolean),
-  );
-}
 
 type TargetUserResult =
   | { error: string }
@@ -37,24 +30,24 @@ async function getTargetUser(userId: string, actorId: string): Promise<TargetUse
   const target = data.user;
   const targetEmail = target.email?.trim().toLowerCase();
   if (target.id === actorId) return { error: "Không thể thao tác trên chính tài khoản đang đăng nhập." };
-  if (targetEmail && adminEmails().has(targetEmail)) return { error: "Không thể thao tác trên tài khoản quản trị." };
+  if (targetEmail && isMasterEmail(targetEmail)) return { error: "Không thể thao tác trên tài khoản quản trị." };
 
   return { user: target };
 }
 
 async function writeAudit(
-  actorEmail: string,
+  actor: { email: string; role: "master" | "owner" | "manager" | "host" | "marketing" },
   action: "ban_user" | "unban_user" | "delete_user",
   targetUserId: string,
-  targetEmail: string,
-  details: string,
+  _targetEmail: string,
+  _details: string,
 ) {
-  const { error } = await supabaseAdmin.from("admin_audit_log").insert({
-    actor_email: actorEmail,
+  const { error } = await logAdminAction(actor, {
     action,
-    target_user_id: targetUserId,
-    target_email: targetEmail,
-    details,
+    area: "accounts",
+    targetType: "user",
+    targetId: targetUserId,
+    details: { operation: action },
   });
   return error;
 }
@@ -76,7 +69,7 @@ export async function banUser(userId: string, reason?: string): Promise<AccountA
   if (error) return { success: false, message: `Không thể khóa tài khoản: ${error.message}` };
 
   const auditDetails = parsedReason.data || "Không nêu lý do";
-  const auditError = await writeAudit(actor.email || "Không có email", "ban_user", targetResult.user.id, targetEmail, auditDetails);
+  const auditError = await writeAudit(actor, "ban_user", targetResult.user.id, targetEmail, auditDetails);
   revalidatePath("/admin/tai-khoan");
   return auditError
     ? { success: true, warning: true, message: `Đã khóa tài khoản nhưng không ghi được nhật ký: ${auditError.message}` }
@@ -92,7 +85,7 @@ export async function unbanUser(userId: string): Promise<AccountActionResult> {
   const { error } = await supabaseAdmin.auth.admin.updateUserById(targetResult.user.id, { ban_duration: "none" });
   if (error) return { success: false, message: `Không thể mở khóa tài khoản: ${error.message}` };
 
-  const auditError = await writeAudit(actor.email || "Không có email", "unban_user", targetResult.user.id, targetEmail, "Mở khóa tài khoản");
+  const auditError = await writeAudit(actor, "unban_user", targetResult.user.id, targetEmail, "Mở khóa tài khoản");
   revalidatePath("/admin/tai-khoan");
   return auditError
     ? { success: true, warning: true, message: `Đã mở khóa tài khoản nhưng không ghi được nhật ký: ${auditError.message}` }
@@ -108,7 +101,7 @@ export async function deleteUser(userId: string): Promise<AccountActionResult> {
   const { error } = await supabaseAdmin.auth.admin.deleteUser(targetResult.user.id);
   if (error) return { success: false, message: `Không thể xóa tài khoản: ${error.message}` };
 
-  const auditError = await writeAudit(actor.email || "Không có email", "delete_user", targetResult.user.id, targetEmail, "Xóa tài khoản");
+  const auditError = await writeAudit(actor, "delete_user", targetResult.user.id, targetEmail, "Xóa tài khoản");
   revalidatePath("/admin/tai-khoan");
   return auditError
     ? { success: true, warning: true, message: `Đã xóa tài khoản nhưng không ghi được nhật ký: ${auditError.message}` }
