@@ -143,6 +143,7 @@ async function updateSettingsData(
   revalidatePath("/", "layout");
   revalidatePath("/lien-he");
   revalidatePath("/admin/noi-dung");
+  updateTag("site-settings");
   return { success: true, message: "Đã lưu", savedValues };
 }
 

@@ -15,6 +15,7 @@ const nextConfig: NextConfig = {
           process.env.NEXT_PUBLIC_SUPABASE_URL ??
             "https://uemzeptlqjbnurclfkkx.supabase.co",
         ).hostname,
+        pathname: "/storage/v1/object/public/**",
       },
     ],
   },

@@ -62,6 +62,7 @@ export function AdminContentForm({
   const [heroImage, setHeroImage] = useState(site.heroImageUrl);
   const [storyImage, setStoryImage] = useState(site.storyImageUrl);
   const [uploading, setUploading] = useState<"hero" | "story" | null>(null);
+  const [homepageImagesUnsaved, setHomepageImagesUnsaved] = useState(false);
   const [seoTitle, setSeoTitle] = useState(site.seo.title);
   const [seoDescription, setSeoDescription] = useState(site.seo.description);
   const [isDirty, setIsDirty] = useState(false);
@@ -91,6 +92,7 @@ export function AdminContentForm({
 
   useEffect(() => {
     if (homepageState.success || seoState.success) {
+      if (homepageState.success) setHomepageImagesUnsaved(false);
       const resetDirtyState = window.setTimeout(() => setIsDirty(false), 0);
       toast.success(homepageState.message ?? seoState.message ?? "Đã lưu");
       return () => window.clearTimeout(resetDirtyState);
@@ -152,6 +154,7 @@ export function AdminContentForm({
     if (kind === "hero") setHeroImage(result.url);
     else setStoryImage(result.url);
     setIsDirty(true);
+    setHomepageImagesUnsaved(true);
     toast.success("Đã tải ảnh");
   }
 
@@ -271,6 +274,7 @@ export function AdminContentForm({
               label="Ảnh hero"
               value={heroImage}
               uploading={uploading === "hero"}
+              unsaved={homepageImagesUnsaved}
               onChange={(event) => uploadImage(event, "hero")}
             />
             <div className="grid gap-2">
@@ -288,6 +292,7 @@ export function AdminContentForm({
               label="Ảnh câu chuyện"
               value={storyImage}
               uploading={uploading === "story"}
+              unsaved={homepageImagesUnsaved}
               onChange={(event) => uploadImage(event, "story")}
             />
           </div>
@@ -330,12 +335,14 @@ function ImageUpload({
   label,
   value,
   uploading,
+  unsaved,
   onChange,
 }: {
   id: string;
   label: string;
   value: string;
   uploading: boolean;
+  unsaved: boolean;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
 }) {
   return (
@@ -348,6 +355,11 @@ function ImageUpload({
       <p className="text-xs text-muted-foreground">
         {uploading ? "Đang tải ảnh..." : "JPG, PNG hoặc WebP, tối đa 3MB."}
       </p>
+      {unsaved ? (
+        <p className="text-sm font-medium text-amber-700">
+          Chưa lưu, hãy bấm Lưu
+        </p>
+      ) : null}
     </div>
   );
 }

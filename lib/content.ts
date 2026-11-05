@@ -271,10 +271,10 @@ export function normalizeSettings(input: unknown): SiteSettings {
     copyrightYear: String(settings.copyright_year ?? settings.copyrightYear ?? defaultSite.copyrightYear),
     heroTitle: String(hero.title ?? settings.hero_title ?? settings.heroTitle ?? defaultSite.heroTitle),
     heroTagline: String(hero.tagline ?? settings.hero_tagline ?? settings.tagline ?? settings.heroTagline ?? defaultSite.heroTagline),
-    heroImageUrl: String(hero.imageUrl ?? hero.image_url ?? settings.hero_image_url ?? settings.heroImageUrl ?? defaultSite.heroImageUrl),
+    heroImageUrl: String(settings.heroImageUrl ?? settings.hero_image_url ?? hero.imageUrl ?? hero.image_url ?? defaultSite.heroImageUrl),
     storyTitle: String(story.title ?? settings.story_title ?? settings.storyTitle ?? defaultSite.storyTitle),
     storyContent: String(story.content ?? settings.story_content ?? settings.storyContent ?? defaultSite.storyContent),
-    storyImageUrl: String(story.imageUrl ?? story.image_url ?? settings.story_image_url ?? settings.storyImageUrl ?? defaultSite.storyImageUrl),
+    storyImageUrl: String(settings.storyImageUrl ?? settings.story_image_url ?? story.imageUrl ?? story.image_url ?? defaultSite.storyImageUrl),
     mapEmbedUrl: String(settings.map_embed_url ?? settings.mapEmbedUrl ?? defaultSite.mapEmbedUrl),
     socialLinks: {
       facebook: String(social.facebook ?? defaultSite.socialLinks.facebook),
@@ -288,28 +288,28 @@ export function normalizeSettings(input: unknown): SiteSettings {
   };
 }
 
-const siteSettingsCache = unstable_cache(
-  async (): Promise<SiteSettings> => {
-    const { data, error } = await supabaseAdmin
-      .from("site_settings")
-      .select("*")
-      .limit(1)
-      .maybeSingle<SiteSettingsRow>();
+async function getCachedSiteSettings(): Promise<SiteSettings> {
+  "use cache";
+  cacheLife({ stale: 300, revalidate: 300, expire: 3600 });
+  cacheTag("site-settings");
 
-    if (error) {
-      console.error("Không thể đọc site settings từ Supabase:", error.message);
-      return defaultSite;
-    }
+  const { data, error } = await supabaseAdmin
+    .from("site_settings")
+    .select("*")
+    .limit(1)
+    .maybeSingle<SiteSettingsRow>();
 
-    if (!data) {
-      return defaultSite;
-    }
+  if (error) {
+    console.error("Không thể đọc site settings từ Supabase:", error.message);
+    return defaultSite;
+  }
 
-    return normalizeSettings(data);
-  },
-  ["site-settings"],
-  { revalidate: 60, tags: ["site-settings"] },
-);
+  if (!data) {
+    return defaultSite;
+  }
+
+  return normalizeSettings(data);
+}
 
 async function getCachedPromotions(): Promise<Array<{
   id: unknown;
@@ -378,7 +378,7 @@ const testimonialsCache = unstable_cache(
 );
 
 export async function getSiteSettings() {
-  return siteSettingsCache();
+  return getCachedSiteSettings();
 }
 
 export async function getPromotions() {
