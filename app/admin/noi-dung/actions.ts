@@ -3,6 +3,7 @@
 import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 import { requirePermission } from "@/lib/auth";
+import { logAdminAction } from "@/lib/admin-audit";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { ImageProcessingError, prepareServerImage } from "@/lib/image-server";
 
@@ -52,6 +53,10 @@ const homepageSchema = z.object({
 const seoSchema = z.object({
   seoTitle: z.string().trim().min(1, "Vui lòng nhập tiêu đề SEO.").max(60, "Tiêu đề SEO không quá 60 ký tự."),
   seoDescription: z.string().trim().min(1, "Vui lòng nhập mô tả SEO.").max(160, "Mô tả SEO không quá 160 ký tự."),
+});
+
+const signatureSchema = z.object({
+  signatureCount: z.coerce.number().int().min(2, "Số món tối thiểu là 2.").max(12, "Số món tối đa là 12."),
 });
 
 const promotionSchema = z.object({
@@ -144,6 +149,7 @@ async function updateSettingsData(
   revalidatePath("/lien-he");
   revalidatePath("/admin/noi-dung");
   updateTag("site-settings");
+  updateTag("settings");
   return { success: true, message: "Đã lưu", savedValues };
 }
 
@@ -243,6 +249,48 @@ export async function saveSeoSettings(
   return updateSettingsData({
     seo: { title: parsed.data.seoTitle, description: parsed.data.seoDescription },
   });
+}
+
+export async function saveSignatureSettings(
+  _previousState: SaveSettingsState,
+  formData: FormData,
+) {
+  const actor = await requirePermission("signature.manage");
+  const parsed = signatureSchema.safeParse({
+    signatureCount: formData.get("signatureCount"),
+  });
+  if (!parsed.success) return validationState(parsed.error);
+
+  const { data: current, error } = await supabaseAdmin
+    .from("site_settings")
+    .select("data")
+    .eq("id", 1)
+    .maybeSingle<{ data: Record<string, unknown> | null }>();
+  if (error) {
+    return { success: false, message: `Không thể đọc cài đặt món signature: ${error.message}` };
+  }
+
+  const oldValue =
+    typeof current?.data?.signatureCount === "number"
+      ? current.data.signatureCount
+      : 4;
+  const result = await updateSettingsData({
+    signatureCount: parsed.data.signatureCount,
+  });
+  if (!result.success) return result;
+
+  const audit = await logAdminAction(actor, {
+    action: "signature_count_change",
+    area: "content",
+    details: { oldValue, newValue: parsed.data.signatureCount },
+  });
+  if (audit.error) {
+    return {
+      ...result,
+      message: `Đã lưu số món signature nhưng không ghi được nhật ký: ${audit.error.message}`,
+    };
+  }
+  return { success: true, message: "Đã lưu số món signature." };
 }
 
 function storagePathFromPublicUrl(value: string) {

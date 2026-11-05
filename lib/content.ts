@@ -24,6 +24,7 @@ export type SiteSettings = {
   storyTitle: string;
   storyContent: string;
   storyImageUrl: string;
+  signatureCount: number;
   mapEmbedUrl: string;
   seo: {
     title: string;
@@ -79,6 +80,80 @@ function isMenuCategory(value: unknown): value is MenuCategory {
 
 function isMenuTag(value: unknown): value is MenuTag {
   return typeof value === "string" && menuTags.has(value as MenuTag);
+}
+
+const SIGNATURE_DEFAULT_COUNT = 4;
+
+function normalizeSignatureCount(value: unknown) {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    return SIGNATURE_DEFAULT_COUNT;
+  }
+  return Math.min(12, Math.max(2, value));
+}
+
+export async function getSignatureDishes(count: number): Promise<MenuItem[]> {
+  "use cache";
+  cacheLife({ stale: 60, revalidate: 60, expire: 300 });
+  cacheTag("menu", "settings");
+
+  const { data, error } = await supabaseAdmin
+    .from("menu_items")
+    .select(
+      "id, name, description, price, image_url, tags, allergens, available, sort_order, category:menu_categories!inner(name, slug, active, sort_order)",
+    )
+    .eq("available", true)
+    .eq("menu_categories.active", true)
+    .contains("tags", ["ban-chay"])
+    .order("sort_order", { ascending: true, referencedTable: "menu_categories" })
+    .order("sort_order", { ascending: true })
+    .order("id", { ascending: true })
+    .limit(normalizeSignatureCount(count));
+
+  if (error) {
+    console.error("Không thể đọc món signature từ Supabase:", error.message);
+    return [];
+  }
+
+  return ((data ?? []) as Array<Record<string, unknown>>)
+    .filter((row) => Array.isArray(row.tags))
+    .map((row): MenuItem | null => {
+      const category = row.category as Record<string, unknown> | null;
+      const categoryName = category?.name;
+      if (!isMenuCategory(categoryName)) return null;
+      const tags = row.tags as unknown[];
+      return {
+        id: String(row.id),
+        name: String(row.name ?? ""),
+        shortDescription: String(row.description ?? ""),
+        description: String(row.description ?? ""),
+        price: Number(row.price ?? 0),
+        category: categoryName,
+        image: String(row.image_url ?? ""),
+        tags: tags.filter(isMenuTag),
+        allergens: Array.isArray(row.allergens)
+          ? row.allergens.filter((value): value is string => typeof value === "string")
+          : [],
+        available: true,
+      };
+    })
+    .filter((item): item is MenuItem => item !== null);
+}
+
+export async function getSignatureEligibleCount() {
+  "use cache";
+  cacheLife({ stale: 60, revalidate: 60, expire: 300 });
+  cacheTag("menu");
+  const { count, error } = await supabaseAdmin
+    .from("menu_items")
+    .select("id, category:menu_categories!inner(id)", { count: "exact", head: true })
+    .eq("available", true)
+    .eq("menu_categories.active", true)
+    .contains("tags", ["ban-chay"]);
+  if (error) {
+    console.error("Không thể đếm món signature:", error.message);
+    return 0;
+  }
+  return count ?? 0;
 }
 
 export async function getMenu(): Promise<MenuItem[]> {
@@ -275,6 +350,7 @@ export function normalizeSettings(input: unknown): SiteSettings {
     storyTitle: String(story.title ?? settings.story_title ?? settings.storyTitle ?? defaultSite.storyTitle),
     storyContent: String(story.content ?? settings.story_content ?? settings.storyContent ?? defaultSite.storyContent),
     storyImageUrl: String(settings.storyImageUrl ?? settings.story_image_url ?? story.imageUrl ?? story.image_url ?? defaultSite.storyImageUrl),
+    signatureCount: normalizeSignatureCount(settings.signatureCount),
     mapEmbedUrl: String(settings.map_embed_url ?? settings.mapEmbedUrl ?? defaultSite.mapEmbedUrl),
     socialLinks: {
       facebook: String(social.facebook ?? defaultSite.socialLinks.facebook),

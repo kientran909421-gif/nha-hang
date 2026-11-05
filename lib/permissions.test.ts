@@ -14,6 +14,12 @@ describe("role permissions", () => {
     expect(hasPermission("manager", "staff.manage")).toBe(false);
   });
 
+  it("limits signature management to management roles", () => {
+    expect(hasPermission("manager", "signature.manage")).toBe(true);
+    expect(hasPermission("marketing", "signature.manage")).toBe(false);
+    expect(hasPermission("host", "signature.manage")).toBe(false);
+  });
+
   it("allows owner every defined permission", () => {
     expect(hasPermission("owner", "staff.manage")).toBe(true);
     expect(hasPermission("owner", "customers.delete")).toBe(true);

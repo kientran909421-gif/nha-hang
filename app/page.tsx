@@ -1,18 +1,18 @@
 import { Suspense } from "react";
 import { HomePage } from "@/components/home-page";
 import {
-  getMenu,
+  getSignatureDishes,
   getPromotions,
   getSiteSettings,
   getTestimonials,
 } from "@/lib/content";
 
 async function HomeContent() {
-  const [site, promotions, testimonials, menu] = await Promise.all([
-    getSiteSettings(),
+  const site = await getSiteSettings();
+  const [promotions, testimonials, signatureDishes] = await Promise.all([
     getPromotions(),
     getTestimonials(),
-    getMenu(),
+    getSignatureDishes(site.signatureCount),
   ]);
 
   return (
@@ -20,9 +20,7 @@ async function HomeContent() {
       site={site}
       promotions={promotions}
       testimonials={testimonials}
-      signatureDishes={menu
-        .filter((item) => item.available && item.tags.includes("ban-chay"))
-        .slice(0, 4)}
+      signatureDishes={signatureDishes}
     />
   );
 }

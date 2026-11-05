@@ -7,6 +7,7 @@ export type Permission =
   | "menu.availability"
   | "menu.edit"
   | "content.edit"
+  | "signature.manage"
   | "promotions.edit"
   | "settings.edit"
   | "customers.view"
@@ -23,21 +24,21 @@ export type Permission =
 export const rolePermissions: Record<StaffRole, readonly Permission[]> = {
   master: [
     "dashboard.bookings", "dashboard.traffic", "bookings.manage",
-    "menu.availability", "menu.edit", "content.edit", "promotions.edit",
+    "menu.availability", "menu.edit", "content.edit", "signature.manage", "promotions.edit",
     "settings.edit", "customers.view", "customers.lookup", "customers.ban",
     "customers.delete", "audit.view", "staff.manage", "owners.manage",
     "activity.viewAll", "activity.viewTeam", "system.manage",
   ],
   owner: [
     "dashboard.bookings", "dashboard.traffic", "bookings.manage",
-    "menu.availability", "menu.edit", "content.edit", "promotions.edit",
+    "menu.availability", "menu.edit", "content.edit", "signature.manage", "promotions.edit",
     "settings.edit", "customers.view", "customers.lookup", "customers.ban",
     "customers.delete", "audit.view", "staff.manage",
     "activity.viewTeam",
   ],
   manager: [
     "dashboard.bookings", "dashboard.traffic", "bookings.manage",
-    "menu.availability", "menu.edit", "content.edit", "promotions.edit",
+    "menu.availability", "menu.edit", "content.edit", "signature.manage", "promotions.edit",
     "settings.edit", "customers.view", "customers.lookup", "customers.ban",
     "audit.view",
   ],

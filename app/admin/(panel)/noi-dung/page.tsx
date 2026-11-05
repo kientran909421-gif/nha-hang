@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import { AdminContentForm } from "@/components/admin-content-form";
-import { getSiteSettings } from "@/lib/content";
+import { getSiteSettings, getSignatureEligibleCount } from "@/lib/content";
 import { getAdminPromotions, getAdminTestimonials } from "@/lib/content";
 import { getCurrentStaff } from "@/lib/auth";
-import { hasAnyPermission } from "@/lib/permissions";
+import { hasAnyPermission, hasPermission } from "@/lib/permissions";
 import { AdminForbidden } from "@/components/admin-forbidden";
 
 export default function AdminContentPage() {
@@ -16,6 +16,7 @@ async function AdminContentPageContent() {
     return <AdminForbidden />;
   }
   const site = await getSiteSettings();
+  const signatureEligibleCount = await getSignatureEligibleCount();
   const promotions = await getAdminPromotions();
   const testimonials = await getAdminTestimonials();
 
@@ -25,7 +26,13 @@ async function AdminContentPageContent() {
       <h1 className="mt-2 font-heading text-4xl font-semibold">
         Nội dung website
       </h1>
-      <AdminContentForm site={site} promotions={promotions} testimonials={testimonials} />
+      <AdminContentForm
+        site={site}
+        promotions={promotions}
+        testimonials={testimonials}
+        canManageSignature={hasPermission(staff.role, "signature.manage")}
+        signatureEligibleCount={signatureEligibleCount}
+      />
     </section>
   );
 }

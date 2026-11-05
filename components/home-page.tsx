@@ -121,7 +121,7 @@ export function HomePage({
         </form>
       </section>
 
-      <section className="mx-auto w-full max-w-7xl px-5 py-24 lg:px-8 lg:py-32">
+      {signatureDishes.length > 0 ? <section className="mx-auto w-full max-w-7xl px-5 py-24 lg:px-8 lg:py-32">
         <div className="mb-10 flex items-end justify-between gap-4">
           <div>
             <p className="mb-3 text-sm font-medium uppercase tracking-[0.2em] text-accent">
@@ -138,7 +138,7 @@ export function HomePage({
             Xem tất cả món
           </Link>
         </div>
-        <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4">
           {signatureDishes.map((dish) => (
             <article key={dish.name}>
               <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-muted">
@@ -159,7 +159,18 @@ export function HomePage({
             </article>
           ))}
         </div>
-      </section>
+        {signatureDishes.length > 8 ? (
+          <div className="mt-8 flex justify-center">
+            <Button
+              nativeButton={false}
+              render={<Link href="/thuc-don" />}
+              variant="outline"
+            >
+              Xem toàn bộ thực đơn
+            </Button>
+          </div>
+        ) : null}
+      </section> : null}
 
       <section className="bg-[#F1E9DE] px-5 py-24 lg:px-8 lg:py-32">
         <div className="mx-auto max-w-7xl">

@@ -25,6 +25,7 @@ import {
   saveSiteSettings,
   saveHomepageSettings,
   saveSeoSettings,
+  saveSignatureSettings,
   uploadSiteImage,
   type SaveSettingsState,
 } from "@/app/admin/noi-dung/actions";
@@ -37,10 +38,14 @@ export function AdminContentForm({
   site,
   promotions,
   testimonials,
+  canManageSignature,
+  signatureEligibleCount,
 }: {
   site: SiteSettings;
   promotions: Promotion[];
   testimonials: import("@/lib/content").Testimonial[];
+  canManageSignature: boolean;
+  signatureEligibleCount: number;
 }) {
   const [openingHours, setOpeningHours] = useState<OpeningHour[]>(
     site.openingHoursSchedule.length > 0
@@ -65,6 +70,11 @@ export function AdminContentForm({
   const [homepageImagesUnsaved, setHomepageImagesUnsaved] = useState(false);
   const [seoTitle, setSeoTitle] = useState(site.seo.title);
   const [seoDescription, setSeoDescription] = useState(site.seo.description);
+  const [signatureCount, setSignatureCount] = useState(String(site.signatureCount));
+  const [signatureState, signatureAction, signaturePending] = useActionState(
+    saveSignatureSettings,
+    initialState,
+  );
   const [isDirty, setIsDirty] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -100,6 +110,16 @@ export function AdminContentForm({
     const message = homepageState.message ?? seoState.message;
     if (message) toast.error(message);
   }, [homepageState, seoState]);
+
+  useEffect(() => {
+    if (signatureState.success) {
+      toast.success(signatureState.message ?? "Đã lưu số món signature.");
+    } else if (signatureState.message) {
+      toast.error(signatureState.message);
+    } else if (signatureState.fieldErrors) {
+      toast.error(Object.values(signatureState.fieldErrors)[0] ?? "Số món không hợp lệ.");
+    }
+  }, [signatureState]);
 
   useEffect(() => {
     function handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -302,6 +322,45 @@ export function AdminContentForm({
             </Button>
           </div>
         </form>
+        {canManageSignature ? (
+          <form action={signatureAction} className="mt-6 grid gap-4 rounded-2xl border border-border bg-background p-5 lg:p-8">
+            <div>
+              <h2 className="font-heading text-2xl font-semibold">Món signature</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Số món hiện ở trang chủ. Món được lấy từ các món gắn tag Bán chạy và đang còn món.
+              </p>
+            </div>
+            <div className="grid gap-2 sm:max-w-xs">
+              <label htmlFor="signatureCount" className="text-sm font-medium">Số món hiển thị</label>
+              <Input
+                id="signatureCount"
+                name="signatureCount"
+                type="number"
+                min={2}
+                max={12}
+                step={1}
+                value={signatureCount}
+                onChange={(event) => setSignatureCount(event.target.value)}
+              />
+              {signatureState.fieldErrors?.signatureCount ? (
+                <ErrorText>{signatureState.fieldErrors.signatureCount}</ErrorText>
+              ) : null}
+              <p className="text-xs text-muted-foreground">
+                Hiện có {signatureEligibleCount} món đủ điều kiện.
+              </p>
+              {Number(signatureCount) > signatureEligibleCount ? (
+                <p className="text-sm text-amber-700">
+                  Số chọn lớn hơn số món đủ điều kiện; trang chủ chỉ hiển thị số món hiện có.
+                </p>
+              ) : null}
+            </div>
+            <div className="flex justify-end">
+              <Button type="submit" disabled={signaturePending}>
+                {signaturePending ? "Đang lưu..." : "Lưu số món"}
+              </Button>
+            </div>
+          </form>
+        ) : null}
       </TabsContent>
       <TabsContent value="seo" className="mt-8">
         <form action={seoAction} onChange={() => setIsDirty(true)} className="grid gap-5 rounded-2xl border border-border bg-background p-5 lg:p-8">

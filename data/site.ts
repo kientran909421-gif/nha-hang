@@ -17,6 +17,7 @@ export const site = {
   storyContent:
     "Nhà hàng bắt đầu từ căn bếp nhỏ và mong muốn lưu giữ những hương vị thân quen của bữa cơm Việt. Mỗi ngày, chúng tôi chọn nguyên liệu cẩn thận, nấu vừa đủ và đón tiếp mỗi vị khách như một người bạn.",
   storyImageUrl: "/images/cau-chuyen.jpg",
+  signatureCount: 4,
   mapEmbedUrl:
     "https://www.google.com/maps?q=Nguyen+Hue,+District+1,+Ho+Chi+Minh+City&output=embed",
   seo: {
