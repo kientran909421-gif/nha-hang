@@ -30,9 +30,11 @@ const geistMono = Geist_Mono({
 
 export async function generateMetadata(): Promise<Metadata> {
   const site = await getSiteSettings();
+  const isDemoMode = process.env.DEMO_MODE === "true";
   return {
     title: site.seo.title,
     description: site.seo.description,
+    ...(isDemoMode ? { robots: { index: false, follow: false } } : {}),
   };
 }
 
