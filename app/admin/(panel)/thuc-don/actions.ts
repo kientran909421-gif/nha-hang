@@ -142,7 +142,7 @@ export async function uploadMenuImage(
   }
   let bytes: Buffer;
   try {
-    bytes = await prepareServerImage(file);
+    bytes = await prepareServerImage(file, "menu", formData.get("browserPrepared") === "true");
   } catch (error) {
     if (error instanceof ImageProcessingError) return { success: false, message: error.message };
     console.error("Không thể xử lý ảnh món:", error);

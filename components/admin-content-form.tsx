@@ -20,7 +20,7 @@ import type { SiteSettings } from "@/lib/content";
 import type { Promotion } from "@/lib/content";
 import { AdminPromotions } from "@/components/admin-promotions";
 import { AdminTestimonials } from "@/components/admin-testimonials";
-import { prepareImage } from "@/lib/image-client";
+import { prepareImage, readImageInfo } from "@/lib/image-client";
 import {
   saveSiteSettings,
   saveHomepageSettings,
@@ -68,6 +68,8 @@ export function AdminContentForm({
   const [storyImage, setStoryImage] = useState(site.storyImageUrl);
   const [uploading, setUploading] = useState<"hero" | "story" | null>(null);
   const [homepageImagesUnsaved, setHomepageImagesUnsaved] = useState(false);
+  const [heroImageInfo, setHeroImageInfo] = useState<{ width: number; height: number; bytes: number } | null>(null);
+  const [heroOriginalWidth, setHeroOriginalWidth] = useState<number | null>(null);
   const [seoTitle, setSeoTitle] = useState(site.seo.title);
   const [seoDescription, setSeoDescription] = useState(site.seo.description);
   const [signatureCount, setSignatureCount] = useState(String(site.signatureCount));
@@ -154,7 +156,10 @@ export function AdminContentForm({
     setUploading(kind);
     let preparedFile: File;
     try {
-      preparedFile = await prepareImage(file, kind === "hero" ? 2000 : 1600);
+      if (kind === "hero") {
+        setHeroOriginalWidth((await readImageInfo(file)).width);
+      }
+      preparedFile = await prepareImage(file, kind);
     } catch (error) {
       setUploading(null);
       event.target.value = "";
@@ -163,6 +168,8 @@ export function AdminContentForm({
     }
     const data = new FormData();
     data.set("file", preparedFile);
+    data.set("imageKind", kind);
+    data.set("browserPrepared", "true");
     data.set("oldImageUrl", kind === "hero" ? heroImage : storyImage);
     const result = await uploadSiteImage(data);
     setUploading(null);
@@ -175,6 +182,7 @@ export function AdminContentForm({
     else setStoryImage(result.url);
     setIsDirty(true);
     setHomepageImagesUnsaved(true);
+    if (kind === "hero") setHeroImageInfo(await readImageInfo(preparedFile));
     toast.success("Đã tải ảnh");
   }
 
@@ -295,6 +303,8 @@ export function AdminContentForm({
               value={heroImage}
               uploading={uploading === "hero"}
               unsaved={homepageImagesUnsaved}
+              imageInfo={heroImageInfo}
+              originalWidth={heroOriginalWidth}
               onChange={(event) => uploadImage(event, "hero")}
             />
             <div className="grid gap-2">
@@ -395,6 +405,8 @@ function ImageUpload({
   value,
   uploading,
   unsaved,
+  imageInfo,
+  originalWidth,
   onChange,
 }: {
   id: string;
@@ -402,6 +414,8 @@ function ImageUpload({
   value: string;
   uploading: boolean;
   unsaved: boolean;
+  imageInfo?: { width: number; height: number; bytes: number } | null;
+  originalWidth?: number | null;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
 }) {
   return (
@@ -417,6 +431,16 @@ function ImageUpload({
       {unsaved ? (
         <p className="text-sm font-medium text-amber-700">
           Chưa lưu, hãy bấm Lưu
+        </p>
+      ) : null}
+      {imageInfo ? (
+        <p className="text-xs text-muted-foreground">
+          Sau nén: {imageInfo.width} × {imageInfo.height}px · {(imageInfo.bytes / (1024 * 1024)).toFixed(2)}MB
+        </p>
+      ) : null}
+      {originalWidth !== null && originalWidth !== undefined && originalWidth < 1920 ? (
+        <p className="text-sm text-amber-700">
+          Ảnh nhỏ, có thể bị mờ trên màn hình lớn. Nên dùng ảnh rộng từ 2400px.
         </p>
       ) : null}
     </div>

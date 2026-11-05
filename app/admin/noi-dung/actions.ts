@@ -307,11 +307,13 @@ function storagePathFromPublicUrl(value: string) {
 export async function uploadSiteImage(formData: FormData) {
   await requirePermission("content.edit");
   const file = formData.get("file");
+  const imageKind = String(formData.get("imageKind") ?? "story");
+  const browserPrepared = formData.get("browserPrepared") === "true";
   const oldImageUrl = String(formData.get("oldImageUrl") ?? "");
   if (!(file instanceof File)) return { success: false, message: "Vui lòng chọn một ảnh hợp lệ." };
   let bytes: Buffer;
   try {
-    bytes = await prepareServerImage(file);
+    bytes = await prepareServerImage(file, imageKind, browserPrepared);
   } catch (error) {
     if (error instanceof ImageProcessingError) return { success: false, message: error.message };
     console.error("Không thể xử lý ảnh website:", error);

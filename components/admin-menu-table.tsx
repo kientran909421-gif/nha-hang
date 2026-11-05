@@ -234,7 +234,7 @@ function MenuFormDialog({
       if (imageFile) {
         let preparedFile: File;
         try {
-          preparedFile = await prepareImage(imageFile);
+          preparedFile = await prepareImage(imageFile, "menu");
         } catch (error) {
           const message = error instanceof Error ? error.message : "Không thể xử lý ảnh.";
           setErrors((current) => ({ ...current, image: message }));
@@ -243,6 +243,7 @@ function MenuFormDialog({
         }
         const formData = new FormData();
         formData.set("file", preparedFile);
+        formData.set("browserPrepared", "true");
         const uploadResult = await uploadMenuImage(formData);
         if (!uploadResult.success || !uploadResult.url) {
           setErrors((current) => ({

@@ -1,15 +1,19 @@
 import sharp from "sharp";
-
-const MAX_FILE_SIZE = 3 * 1024 * 1024;
+import { getImageProfile, isImageProfileName } from "@/lib/image-profiles";
 
 export class ImageProcessingError extends Error {}
 
 export async function prepareServerImage(
   file: File,
-  maxDimension = 1600,
+  profileName: string,
+  browserPrepared = false,
 ): Promise<Buffer> {
-  if (file.size > MAX_FILE_SIZE) {
-    throw new ImageProcessingError("Ảnh không được vượt quá 3MB.");
+  if (!isImageProfileName(profileName)) {
+    throw new ImageProcessingError("Loại ảnh không hợp lệ.");
+  }
+  const profile = getImageProfile(profileName);
+  if (file.size > 4 * 1024 * 1024) {
+    throw new ImageProcessingError("Ảnh gửi lên vượt quá giới hạn 4MB.");
   }
 
   const input = Buffer.from(await file.arrayBuffer());
@@ -17,20 +21,32 @@ export async function prepareServerImage(
     throw new ImageProcessingError("Chỉ chấp nhận ảnh JPG, PNG hoặc WebP hợp lệ.");
   }
 
-  let width = maxDimension;
+  const metadata = await sharp(input).metadata();
+  if (
+    browserPrepared &&
+    metadata.format === "webp" &&
+    metadata.width &&
+    metadata.height &&
+    Math.max(metadata.width, metadata.height) <= profile.maxDimension &&
+    file.size <= profile.maxBytes
+  ) {
+    return sharp(input).rotate().toBuffer();
+  }
+
+  let width = profile.maxDimension;
   for (let attempt = 0; attempt < 8; attempt += 1) {
-    for (let quality = 82; quality >= 42; quality -= 8) {
+    for (let quality = profile.quality * 100; quality >= profile.minQuality * 100; quality -= 5) {
       const output = await sharp(input)
         .rotate()
         .resize({ width, height: width, fit: "inside", withoutEnlargement: true })
-        .webp({ quality })
+        .webp({ quality, effort: 4, smartSubsample: true })
         .toBuffer();
-      if (output.length <= MAX_FILE_SIZE) return output;
+      if (output.length <= profile.maxBytes) return output;
     }
     width = Math.max(640, Math.round(width * 0.85));
   }
 
-  throw new ImageProcessingError("Không thể xử lý ảnh xuống dưới 3MB.");
+  throw new ImageProcessingError(`Không thể xử lý ảnh xuống dưới ${profile.maxBytes / (1024 * 1024)}MB. Vui lòng chọn ảnh nhỏ hơn.`);
 }
 
 function isSupportedImage(bytes: Uint8Array) {

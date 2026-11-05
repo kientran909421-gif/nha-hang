@@ -4,10 +4,15 @@ const nextConfig: NextConfig = {
   /* config options here */
   experimental: {
     agentFeedback: true,
+    serverActions: {
+      bodySizeLimit: "4mb",
+    },
   },
   cacheComponents: true,
   partialPrefetching: true,
   images: {
+    qualities: [75, 82, 86, 90],
+    formats: ["image/avif", "image/webp"],
     remotePatterns: [
       {
         protocol: "https",

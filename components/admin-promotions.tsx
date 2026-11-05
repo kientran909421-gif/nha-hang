@@ -181,7 +181,7 @@ function PromotionForm({
     setUploading(true);
     let preparedFile: File;
     try {
-      preparedFile = await prepareImage(file);
+      preparedFile = await prepareImage(file, "promo");
     } catch (error) {
       setUploading(false);
       event.target.value = "";
@@ -190,6 +190,8 @@ function PromotionForm({
     }
     const data = new FormData();
     data.set("file", preparedFile);
+    data.set("imageKind", "promo");
+    data.set("browserPrepared", "true");
     data.set("oldImageUrl", imageUrl);
     const result = await uploadSiteImage(data);
     setUploading(false);

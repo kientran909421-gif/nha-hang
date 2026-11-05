@@ -43,7 +43,8 @@ export function HomePage({
           fill
           priority
           sizes="100vw"
-          className="object-cover"
+          quality={90}
+          className="object-cover object-center"
         />
         <div className="absolute inset-0 bg-black/50" />
         <div className="relative z-10 mx-auto w-full max-w-7xl px-5 pb-36 pt-24 text-center text-white lg:px-8">
