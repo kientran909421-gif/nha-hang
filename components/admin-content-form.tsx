@@ -20,6 +20,7 @@ import type { SiteSettings } from "@/lib/content";
 import type { Promotion } from "@/lib/content";
 import { AdminPromotions } from "@/components/admin-promotions";
 import { AdminTestimonials } from "@/components/admin-testimonials";
+import { prepareImage } from "@/lib/image-client";
 import {
   saveSiteSettings,
   saveHomepageSettings,
@@ -129,8 +130,17 @@ export function AdminContentForm({
     const file = event.target.files?.[0];
     if (!file) return;
     setUploading(kind);
+    let preparedFile: File;
+    try {
+      preparedFile = await prepareImage(file, kind === "hero" ? 2000 : 1600);
+    } catch (error) {
+      setUploading(null);
+      event.target.value = "";
+      toast.error(error instanceof Error ? error.message : "Không thể xử lý ảnh.");
+      return;
+    }
     const data = new FormData();
-    data.set("file", file);
+    data.set("file", preparedFile);
     data.set("oldImageUrl", kind === "hero" ? heroImage : storyImage);
     const result = await uploadSiteImage(data);
     setUploading(null);

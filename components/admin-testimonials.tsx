@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,11 +19,13 @@ import type { Testimonial } from "@/lib/content";
 import {
   deleteTestimonial,
   moveTestimonial,
-  saveTestimonial,
+  createTestimonial,
+  updateTestimonial,
   toggleTestimonial,
 } from "@/app/admin/noi-dung/actions";
 
 export function AdminTestimonials({ initialItems }: { initialItems: Testimonial[] }) {
+  const router = useRouter();
   const [items, setItems] = useState(initialItems);
   const [editing, setEditing] = useState<Testimonial | null>(null);
   const [adding, setAdding] = useState(false);
@@ -114,6 +117,7 @@ export function AdminTestimonials({ initialItems }: { initialItems: Testimonial[
             setItems((current) => editing ? current.map((entry) => entry.id === item.id ? item : entry) : [...current, item]);
             setAdding(false);
             setEditing(null);
+            router.refresh();
           }}
         />
       ) : null}
@@ -137,7 +141,9 @@ function TestimonialForm({
     event.preventDefault();
     setPending(true);
     const form = new FormData(event.currentTarget);
-    const result = await saveTestimonial(form);
+    const result = item
+      ? await updateTestimonial(form)
+      : await createTestimonial(form);
     setPending(false);
     if (!result.success) {
       return toast.error(result.message ?? "Dữ liệu chưa hợp lệ.");

@@ -65,7 +65,6 @@ export async function getCurrentStaff(): Promise<CurrentStaff | null> {
       .limit(1)
       .maybeSingle();
     if (presenceReadError) {
-      console.error("[admin-auth] Không thể đọc presence master:", presenceReadError.message);
     } else if (!recentPresence) {
       await logAdminAction(
         { email, role: "master" },
@@ -90,7 +89,6 @@ export async function getCurrentStaff(): Promise<CurrentStaff | null> {
       .from("staff_members")
       .update({ last_seen_at: new Date().toISOString() })
       .eq("id", staff.id);
-    if (touchError) console.error("[admin-auth] Không thể cập nhật last_seen_at:", touchError.message);
   }
 
   return {
@@ -161,7 +159,6 @@ export async function requireAnyPermission(
 
 export async function requireAdmin(options?: { api?: boolean }) {
   await connection();
-  console.log("[admin-auth] requireAdmin: bắt đầu kiểm tra phiên");
   const staff = await getCurrentStaff();
   if (!staff) {
     if (options?.api) throw new AdminAuthError(401, "Bạn chưa đăng nhập hoặc không có tài khoản nhân viên.");

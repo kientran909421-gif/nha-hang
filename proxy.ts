@@ -33,7 +33,6 @@ export async function proxy(request: NextRequest) {
   }
   const isAdminRoute = isAdminPage || isAdminApi;
   if (process.env.NODE_ENV === "development") {
-    console.log("[admin-auth] proxy: bắt đầu", { path });
   }
 
   const response = NextResponse.next({ request });
@@ -60,7 +59,6 @@ export async function proxy(request: NextRequest) {
     error,
   } = await supabase.auth.getUser();
   if (process.env.NODE_ENV === "development") {
-    console.log("[admin-auth] proxy: getUser", { path, hasError: Boolean(error) });
   }
 
   if (isLogin || !isAdminRoute) {
@@ -75,7 +73,6 @@ export async function proxy(request: NextRequest) {
       );
     }
     if (process.env.NODE_ENV === "development") {
-      console.log("[admin-auth] proxy: chưa đăng nhập, chuyển tới login");
     }
     return copyCookies(
       response,
@@ -102,7 +99,6 @@ export async function proxy(request: NextRequest) {
       );
     }
     if (process.env.NODE_ENV === "development") {
-      console.log("[admin-auth] proxy: không có quyền");
     }
     await supabase.auth.signOut();
     return copyCookies(
@@ -112,7 +108,6 @@ export async function proxy(request: NextRequest) {
   }
 
   if (process.env.NODE_ENV === "development") {
-    console.log("[admin-auth] proxy: cho phép admin");
   }
   return response;
 }

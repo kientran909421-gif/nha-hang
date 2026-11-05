@@ -42,18 +42,21 @@ import type { MenuCategory, MenuItem } from "@/data/menu";
 import {
   deleteMenuItem,
   deleteUploadedMenuImage,
-  saveMenuItem,
+  createMenuItem,
+  updateMenuItem,
   uploadMenuImage,
   updateMenuAvailability,
   reorderMenuItem,
   deleteMenuCategory,
   reorderMenuCategory,
-  saveMenuCategory,
+  createMenuCategory,
+  updateMenuCategory,
   updateMenuCategoryActive,
   type MenuFormValues,
 } from "@/app/admin/(panel)/thuc-don/actions";
 import type { AdminMenuCategory } from "@/lib/content";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { prepareImage } from "@/lib/image-client";
 
 const normalizeText = (value: string) =>
   value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -191,7 +194,6 @@ function MenuFormDialog({
       setValues(
         item
           ? {
-              id: item.id,
               name: item.name,
               description: item.description,
               price: String(item.price),
@@ -230,8 +232,17 @@ function MenuFormDialog({
       let uploadedUrl = "";
 
       if (imageFile) {
+        let preparedFile: File;
+        try {
+          preparedFile = await prepareImage(imageFile);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Không thể xử lý ảnh.";
+          setErrors((current) => ({ ...current, image: message }));
+          toast.error(message);
+          return;
+        }
         const formData = new FormData();
-        formData.set("file", imageFile);
+        formData.set("file", preparedFile);
         const uploadResult = await uploadMenuImage(formData);
         if (!uploadResult.success || !uploadResult.url) {
           setErrors((current) => ({
@@ -245,7 +256,9 @@ function MenuFormDialog({
         nextValues = { ...values, imageUrl: uploadedUrl };
       }
 
-      const result = await saveMenuItem(nextValues);
+      const result = item
+        ? await updateMenuItem({ ...nextValues, id: item.id })
+        : await createMenuItem(nextValues);
       if (!result.success) {
         setErrors(result.errors ?? {});
         toast.error(result.message);
@@ -480,11 +493,9 @@ function CategoryDialog({
 
   function submit() {
     startTransition(async () => {
-      const result = await saveMenuCategory({
-        id: category?.id,
-        name,
-        active,
-      });
+      const result = category
+        ? await updateMenuCategory({ id: category.id, name, active })
+        : await createMenuCategory({ name, active });
       if (!result.success) {
         setError(result.errors?.name ?? result.message);
         toast.error(result.message);

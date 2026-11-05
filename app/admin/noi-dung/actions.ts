@@ -4,6 +4,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 import { requirePermission } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { ImageProcessingError, prepareServerImage } from "@/lib/image-server";
 
 const openingHourSchema = z.object({
   day: z.string().trim().min(1, "Vui lòng nhập ngày."),
@@ -54,7 +55,6 @@ const seoSchema = z.object({
 });
 
 const promotionSchema = z.object({
-  id: z.string().optional(),
   title: z.string().trim().min(1, "Vui lòng nhập tiêu đề."),
   description: z.string().trim().min(1, "Vui lòng nhập mô tả."),
   imageUrl: z.string().trim().min(1, "Vui lòng tải ảnh ưu đãi."),
@@ -62,14 +62,19 @@ const promotionSchema = z.object({
   endsOn: z.string().min(1, "Vui lòng chọn ngày kết thúc."),
   active: z.enum(["true", "false"]).transform((value) => value === "true"),
 });
+const promotionUpdateSchema = promotionSchema.extend({
+  id: z.string().uuid("Mã ưu đãi không hợp lệ."),
+});
 
 const testimonialSchema = z.object({
-  id: z.string().optional(),
   name: z.string().trim().min(1, "Vui lòng nhập tên khách."),
   quote: z.string().trim().min(1, "Vui lòng nhập nội dung."),
   stars: z.coerce.number().int().min(1).max(5),
   source: z.enum(["Google", "Facebook", "Khác"]),
   active: z.enum(["true", "false"]).transform((value) => value === "true"),
+});
+const testimonialUpdateSchema = testimonialSchema.extend({
+  id: z.string().uuid("Mã đánh giá không hợp lệ."),
 });
 
 export type SaveSettingsState = {
@@ -98,7 +103,6 @@ async function updateSettingsData(
     .maybeSingle<{ id: string; data: Record<string, unknown> | null }>();
 
   if (readError) {
-    console.log("[admin-content] Đọc site_settings lỗi:", readError.message);
     return { success: false, message: `Không thể đọc thông tin website: ${readError.message}` };
   }
 
@@ -119,10 +123,6 @@ async function updateSettingsData(
     .eq("id", 1)
     .select();
 
-  console.log("[admin-content] Cập nhật site_settings:", {
-    error: updateError?.message ?? null,
-    rows: updated?.length ?? 0,
-  });
   if (updateError) {
     return { success: false, message: `Không thể lưu thông tin website: ${updateError.message}` };
   }
@@ -132,10 +132,6 @@ async function updateSettingsData(
       .upsert({ id: 1, ...payload }, { onConflict: "id" })
       .select();
 
-    console.log("[admin-content] Upsert site_settings:", {
-      error: upsertError?.message ?? null,
-      rows: inserted?.length ?? 0,
-    });
     if (upsertError) {
       return { success: false, message: `Không thể tạo thông tin website: ${upsertError.message}` };
     }
@@ -182,7 +178,6 @@ export async function saveSiteSettings(
     .eq("id", 1)
     .maybeSingle<{ data: Record<string, unknown> | null }>();
   if (readError) {
-    console.log("[admin-content] Đọc site_settings lỗi:", readError.message);
     return { success: false, message: `Không thể đọc thông tin website: ${readError.message}` };
   }
 
@@ -260,39 +255,25 @@ function storagePathFromPublicUrl(value: string) {
   }
 }
 
-function getImageType(bytes: Uint8Array) {
-  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
-    return { extension: "jpg", contentType: "image/jpeg" };
-  }
-  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
-    return { extension: "png", contentType: "image/png" };
-  }
-  if (
-    bytes.length >= 12 &&
-    String.fromCharCode(...bytes.slice(0, 4)) === "RIFF" &&
-    String.fromCharCode(...bytes.slice(8, 12)) === "WEBP"
-  ) {
-    return { extension: "webp", contentType: "image/webp" };
-  }
-  return null;
-}
-
 export async function uploadSiteImage(formData: FormData) {
   await requirePermission("content.edit");
   const file = formData.get("file");
   const oldImageUrl = String(formData.get("oldImageUrl") ?? "");
   if (!(file instanceof File)) return { success: false, message: "Vui lòng chọn một ảnh hợp lệ." };
-  if (file.size > 3 * 1024 * 1024) return { success: false, message: "Ảnh không được vượt quá 3MB." };
+  let bytes: Buffer;
+  try {
+    bytes = await prepareServerImage(file);
+  } catch (error) {
+    if (error instanceof ImageProcessingError) return { success: false, message: error.message };
+    console.error("Không thể xử lý ảnh website:", error);
+    return { success: false, message: "Không thể xử lý ảnh. Vui lòng thử lại." };
+  }
 
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const imageType = getImageType(bytes);
-  if (!imageType) return { success: false, message: "Chỉ chấp nhận ảnh JPG, PNG hoặc WebP hợp lệ." };
-
-  const path = `${crypto.randomUUID()}.${imageType.extension}`;
+  const path = `${crypto.randomUUID()}.webp`;
   const { error: uploadError } = await supabaseAdmin.storage
     .from("site-images")
     .upload(path, bytes, {
-      contentType: imageType.contentType,
+      contentType: "image/webp",
       upsert: false,
     });
   if (uploadError) return { success: false, message: uploadError.message };
@@ -310,38 +291,65 @@ export async function uploadSiteImage(formData: FormData) {
   return { success: true, url: publicUrl };
 }
 
-export async function savePromotion(formData: FormData) {
-  await requirePermission("promotions.edit");
-  const parsed = promotionSchema.safeParse({
-    id: String(formData.get("id") ?? ""),
+function promotionFields(formData: FormData) {
+  return {
     title: formData.get("title"),
     description: formData.get("description"),
     imageUrl: formData.get("imageUrl"),
     startsOn: formData.get("startsOn"),
     endsOn: formData.get("endsOn"),
     active: formData.get("active"),
+  };
+}
+
+function promotionPayload(input: z.infer<typeof promotionSchema>) {
+  return {
+    title: input.title,
+    description: input.description,
+    image_url: input.imageUrl,
+    starts_on: new Date(input.startsOn).toISOString(),
+    ends_on: new Date(input.endsOn).toISOString(),
+    active: input.active,
+  };
+}
+
+export async function createPromotion(formData: FormData) {
+  await requirePermission("promotions.edit");
+  const parsed = promotionSchema.safeParse(promotionFields(formData));
+  if (!parsed.success) return validationState(parsed.error);
+  if (new Date(parsed.data.endsOn) < new Date(parsed.data.startsOn)) {
+    return { success: false, message: "Ngày kết thúc phải sau ngày bắt đầu." };
+  }
+  const { data, error } = await supabaseAdmin.from("promotions").insert({ ...promotionPayload(parsed.data), sort_order: 0 }).select("id");
+  if (error) return { success: false, message: error.message };
+  if (data.length !== 1) return { success: false, message: "Không thể xác nhận ưu đãi đã được thêm." };
+  revalidatePath("/");
+  revalidatePath("/admin/noi-dung");
+  updateTag("promotions");
+  return { success: true, message: "Đã lưu ưu đãi" };
+}
+
+export async function updatePromotion(formData: FormData) {
+  await requirePermission("promotions.edit");
+  const parsed = promotionUpdateSchema.safeParse({
+    ...promotionFields(formData),
+    id: formData.get("id"),
   });
   if (!parsed.success) return validationState(parsed.error);
   if (new Date(parsed.data.endsOn) < new Date(parsed.data.startsOn)) {
     return { success: false, message: "Ngày kết thúc phải sau ngày bắt đầu." };
   }
-
-  const payload = {
-    title: parsed.data.title,
-    description: parsed.data.description,
-    image_url: parsed.data.imageUrl,
-    starts_on: new Date(parsed.data.startsOn).toISOString(),
-    ends_on: new Date(parsed.data.endsOn).toISOString(),
-    active: parsed.data.active,
-  };
-  const query = parsed.data.id
-    ? supabaseAdmin.from("promotions").update(payload).eq("id", parsed.data.id)
-    : supabaseAdmin.from("promotions").insert({ ...payload, sort_order: 0 });
-  const { error } = await query;
+  const { data, error } = await supabaseAdmin
+    .from("promotions")
+    .update(promotionPayload(parsed.data))
+    .eq("id", parsed.data.id)
+    .select("id");
   if (error) return { success: false, message: error.message };
+  if (data.length !== 1) return { success: false, message: "Không tìm thấy ưu đãi cần sửa." };
   revalidatePath("/");
+  revalidatePath("/admin/noi-dung");
   updateTag("promotions");
-  return { success: true, message: "Đã lưu ưu đãi" };
+  return { success: true, message: "Đã sửa ưu đãi" };
 }
 
 export async function deletePromotion(id: string, imageUrl?: string) {
@@ -399,25 +407,47 @@ export async function movePromotion(id: string, direction: "up" | "down") {
   return { success: true };
 }
 
-export async function saveTestimonial(formData: FormData) {
-  await requirePermission("content.edit");
-  const parsed = testimonialSchema.safeParse({
-    id: String(formData.get("id") ?? ""),
+function testimonialFields(formData: FormData) {
+  return {
     name: formData.get("name"),
     quote: formData.get("quote"),
     stars: formData.get("stars"),
     source: formData.get("source"),
     active: formData.get("active"),
+  };
+}
+
+export async function createTestimonial(formData: FormData) {
+  await requirePermission("content.edit");
+  const parsed = testimonialSchema.safeParse(testimonialFields(formData));
+  if (!parsed.success) return validationState(parsed.error);
+  const payload = { name: parsed.data.name, quote: parsed.data.quote, stars: parsed.data.stars, source: parsed.data.source, active: parsed.data.active };
+  const { data, error } = await supabaseAdmin.from("testimonials").insert({ ...payload, sort_order: 0 }).select("id");
+  if (error) return { success: false, message: error.message };
+  if (data.length !== 1) return { success: false, message: "Không thể xác nhận đánh giá đã được thêm." };
+  revalidatePath("/");
+  revalidatePath("/admin/noi-dung");
+  return { success: true, message: "Đã thêm đánh giá", id: String(data[0].id) };
+}
+
+export async function updateTestimonial(formData: FormData) {
+  await requirePermission("content.edit");
+  const parsed = testimonialUpdateSchema.safeParse({
+    ...testimonialFields(formData),
+    id: formData.get("id"),
   });
   if (!parsed.success) return validationState(parsed.error);
   const payload = { name: parsed.data.name, quote: parsed.data.quote, stars: parsed.data.stars, source: parsed.data.source, active: parsed.data.active };
-  const query = parsed.data.id
-    ? supabaseAdmin.from("testimonials").update(payload).eq("id", parsed.data.id)
-    : supabaseAdmin.from("testimonials").insert({ ...payload, sort_order: 0 }).select("id").single();
-  const { data, error } = await query;
+  const { data, error } = await supabaseAdmin
+    .from("testimonials")
+    .update(payload)
+    .eq("id", parsed.data.id)
+    .select("id");
   if (error) return { success: false, message: error.message };
+  if (data.length !== 1) return { success: false, message: "Không tìm thấy đánh giá cần sửa." };
   revalidatePath("/");
-  return { success: true, message: "Đã lưu đánh giá", id: String(data?.id ?? parsed.data.id) };
+  revalidatePath("/admin/noi-dung");
+  return { success: true, message: "Đã sửa đánh giá", id: parsed.data.id };
 }
 
 export async function deleteTestimonial(id: string) {

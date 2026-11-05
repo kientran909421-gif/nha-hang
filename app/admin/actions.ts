@@ -23,7 +23,6 @@ export async function recordAdminLogin() {
       .update({ last_login_at: new Date().toISOString() })
       .ilike("email", staff.email);
     if (error) {
-      console.error("[admin-auth] Không thể cập nhật last_login_at:", error.message);
       return { success: false };
     }
   }
@@ -41,5 +40,4 @@ export async function recordAdminLoginFailure(email: string) {
     area: "auth",
     details: {},
   });
-  if (error) console.error("[admin-auth] Không thể ghi đăng nhập thất bại:", error.message);
 }

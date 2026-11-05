@@ -55,39 +55,25 @@ export function AdminLoginForm() {
       return;
     }
 
-    console.log("[admin-auth] login: gửi yêu cầu", { email: parsed.data.email });
     setPending(true);
     try {
       const supabase = createBrowserClient(
         getSupabaseUrl(),
         process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
       );
-      console.log("[admin-auth] login: gọi signInWithPassword", { email: parsed.data.email });
       const { error: signInError } = await supabase.auth.signInWithPassword(parsed.data);
       if (signInError) {
         await recordAdminLoginFailure(parsed.data.email);
-        console.log("[admin-auth] login: Supabase trả lỗi", {
-          email: parsed.data.email,
-          message: signInError.message,
-        });
         setError(getLoginError(signInError.message));
         return;
       }
 
       await recordAdminLogin();
-      console.log("[admin-auth] login: thành công, chuyển tới /admin", {
-        email: parsed.data.email,
-      });
       router.replace("/admin");
       router.refresh();
     } catch (loginError) {
-      console.log("[admin-auth] login: exception", {
-        email: parsed.data.email,
-        message: loginError instanceof Error ? loginError.message : "unknown",
-      });
       setError("Không thể kết nối máy chủ. Vui lòng thử lại.");
     } finally {
-      console.log("[admin-auth] login: kết thúc", { email: parsed.data.email });
       setPending(false);
     }
   }

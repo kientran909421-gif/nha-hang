@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,10 +20,12 @@ import type { Promotion } from "@/lib/content";
 import {
   deletePromotion,
   movePromotion,
-  savePromotion,
+  createPromotion,
+  updatePromotion,
   togglePromotion,
   uploadSiteImage,
 } from "@/app/admin/noi-dung/actions";
+import { prepareImage } from "@/lib/image-client";
 
 function localDateTime(value?: string | null) {
   if (!value) return "";
@@ -32,6 +35,7 @@ function localDateTime(value?: string | null) {
 }
 
 export function AdminPromotions({ initialItems }: { initialItems: Promotion[] }) {
+  const router = useRouter();
   const [items, setItems] = useState(initialItems);
   const [editing, setEditing] = useState<Promotion | null>(null);
   const [isAdding, setIsAdding] = useState(false);
@@ -149,6 +153,7 @@ export function AdminPromotions({ initialItems }: { initialItems: Promotion[] })
             );
             setIsAdding(false);
             setEditing(null);
+            router.refresh();
           }}
         />
       ) : null}
@@ -174,11 +179,21 @@ function PromotionForm({
     const file = event.target.files?.[0];
     if (!file) return;
     setUploading(true);
+    let preparedFile: File;
+    try {
+      preparedFile = await prepareImage(file);
+    } catch (error) {
+      setUploading(false);
+      event.target.value = "";
+      toast.error(error instanceof Error ? error.message : "Không thể xử lý ảnh.");
+      return;
+    }
     const data = new FormData();
-    data.set("file", file);
+    data.set("file", preparedFile);
     data.set("oldImageUrl", imageUrl);
     const result = await uploadSiteImage(data);
     setUploading(false);
+    event.target.value = "";
     if (!result.success || !result.url) toast.error(result.message ?? "Không thể tải ảnh.");
     else {
       setImageUrl(result.url);
@@ -189,7 +204,10 @@ function PromotionForm({
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
-    const result = await savePromotion(new FormData(event.currentTarget));
+    const formData = new FormData(event.currentTarget);
+    const result = item
+      ? await updatePromotion(formData)
+      : await createPromotion(formData);
     setPending(false);
     if (!result.success) {
       toast.error(result.message ?? Object.values(result.fieldErrors ?? {})[0] ?? "Dữ liệu chưa hợp lệ.");

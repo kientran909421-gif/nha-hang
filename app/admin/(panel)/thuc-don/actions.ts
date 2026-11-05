@@ -4,6 +4,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { requirePermission } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { ImageProcessingError, prepareServerImage } from "@/lib/image-server";
 
 export type UpdateMenuAvailabilityState = {
   success: boolean;
@@ -17,7 +18,6 @@ export type UploadMenuImageState = {
 };
 
 export type MenuFormValues = {
-  id?: string;
   name: string;
   description: string;
   price: string;
@@ -27,6 +27,8 @@ export type MenuFormValues = {
   available: boolean;
   imageUrl?: string;
 };
+
+export type UpdateMenuFormValues = MenuFormValues & { id: string };
 
 export type MenuFormState = {
   success: boolean;
@@ -54,7 +56,6 @@ export type MenuCategoryActionState = {
 };
 
 const menuFormSchema = z.object({
-  id: z.string().trim().optional(),
   name: z.string().trim().min(1, "Vui lòng nhập tên món."),
   description: z.string().trim(),
   price: z.string().trim().regex(/^\d+$/, "Giá phải là số nguyên không âm."),
@@ -63,6 +64,9 @@ const menuFormSchema = z.object({
   allergens: z.string(),
   available: z.boolean(),
   imageUrl: z.string().optional(),
+});
+const menuUpdateSchema = menuFormSchema.extend({
+  id: z.string().uuid("Mã món không hợp lệ."),
 });
 
 function validationErrors(error: z.ZodError) {
@@ -127,35 +131,6 @@ function menuStoragePathFromPublicUrl(value: string) {
   }
 }
 
-function menuImageType(bytes: Uint8Array) {
-  if (
-    bytes[0] === 0xff &&
-    bytes[1] === 0xd8 &&
-    bytes[2] === 0xff
-  ) {
-    return { extension: "jpg", contentType: "image/jpeg" };
-  }
-  if (
-    bytes[0] === 0x89 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x4e &&
-    bytes[3] === 0x47 &&
-    bytes[4] === 0x0d &&
-    bytes[5] === 0x0a &&
-    bytes[6] === 0x1a &&
-    bytes[7] === 0x0a
-  ) {
-    return { extension: "png", contentType: "image/png" };
-  }
-  if (
-    String.fromCharCode(...bytes.slice(0, 4)) === "RIFF" &&
-    String.fromCharCode(...bytes.slice(8, 12)) === "WEBP"
-  ) {
-    return { extension: "webp", contentType: "image/webp" };
-  }
-  return null;
-}
-
 export async function uploadMenuImage(
   formData: FormData,
 ): Promise<UploadMenuImageState> {
@@ -165,24 +140,20 @@ export async function uploadMenuImage(
   if (!(file instanceof File)) {
     return { success: false, message: "Vui lòng chọn một ảnh hợp lệ." };
   }
-  if (file.size > 3 * 1024 * 1024) {
-    return { success: false, message: "Ảnh không được vượt quá 3MB." };
+  let bytes: Buffer;
+  try {
+    bytes = await prepareServerImage(file);
+  } catch (error) {
+    if (error instanceof ImageProcessingError) return { success: false, message: error.message };
+    console.error("Không thể xử lý ảnh món:", error);
+    return { success: false, message: "Không thể xử lý ảnh. Vui lòng thử lại." };
   }
 
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const imageType = menuImageType(bytes);
-  if (!imageType) {
-    return {
-      success: false,
-      message: "Chỉ chấp nhận ảnh JPG, PNG hoặc WebP hợp lệ.",
-    };
-  }
-
-  const path = `${crypto.randomUUID()}.${imageType.extension}`;
+  const path = `${crypto.randomUUID()}.webp`;
   const { error } = await supabaseAdmin.storage
     .from("menu-images")
     .upload(path, bytes, {
-      contentType: imageType.contentType,
+      contentType: "image/webp",
       upsert: false,
     });
 
@@ -263,14 +234,16 @@ export async function updateMenuAvailability(
   };
 }
 
-export async function saveMenuItem(values: MenuFormValues): Promise<MenuFormState> {
-  await requirePermission("menu.edit");
+async function validateMenuInput(values: MenuFormValues) {
   const parsed = menuFormSchema.safeParse(values);
   if (!parsed.success) {
     return {
-      success: false,
-      message: "Vui lòng kiểm tra lại thông tin món.",
-      errors: validationErrors(parsed.error),
+      parsed: null,
+      result: {
+        success: false,
+        message: "Vui lòng kiểm tra lại thông tin món.",
+        errors: validationErrors(parsed.error),
+      } satisfies MenuFormState,
     };
   }
 
@@ -289,15 +262,33 @@ export async function saveMenuItem(values: MenuFormValues): Promise<MenuFormStat
 
   if (categoryError) {
     console.error("Không thể kiểm tra danh mục món:", categoryError.message);
-    return { success: false, message: `Không thể kiểm tra danh mục: ${categoryError.message}` };
+    return {
+      parsed: null,
+      result: { success: false, message: `Không thể kiểm tra danh mục: ${categoryError.message}` } satisfies MenuFormState,
+    };
   }
   if (!category) {
     return {
-      success: false,
-      message: "Danh mục không tồn tại hoặc đang bị tắt.",
-      errors: { categorySlug: "Vui lòng chọn danh mục đang hoạt động." },
+      parsed: null,
+      result: {
+        success: false,
+        message: "Danh mục không tồn tại hoặc đang bị tắt.",
+        errors: { categorySlug: "Vui lòng chọn danh mục đang hoạt động." },
+      } satisfies MenuFormState,
     };
   }
+
+  return {
+    parsed: { input, category, price, allergens },
+    result: null,
+  };
+}
+
+export async function createMenuItem(values: MenuFormValues): Promise<MenuFormState> {
+  await requirePermission("menu.edit");
+  const validation = await validateMenuInput(values);
+  if (!validation.parsed) return validation.result!;
+  const { input, category, price, allergens } = validation.parsed;
 
   const payload = {
     name: input.name,
@@ -310,88 +301,79 @@ export async function saveMenuItem(values: MenuFormValues): Promise<MenuFormStat
     image_url: input.imageUrl || "/images/mon-1.jpg",
   };
 
-  if (input.id) {
-    const { data: current, error: currentError } = await supabaseAdmin
+  const { data: lastItem, error: orderError } = await supabaseAdmin
+    .from("menu_items")
+    .select("sort_order")
+    .eq("category_id", category.id)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (orderError) return { success: false, message: `Không thể tạo món: ${orderError.message}` };
+
+  const { data, error } = await supabaseAdmin
+    .from("menu_items")
+    .insert({ ...payload, sort_order: Number(lastItem?.sort_order ?? 0) + 1 })
+    .select("id");
+  if (error) return { success: false, message: `Không thể thêm món: ${error.message}` };
+  if (data.length !== 1) return { success: false, message: "Không thể xác nhận món đã được thêm." };
+
+  revalidateMenu();
+  return { success: true, message: "Đã thêm món.", imagePersisted: true };
+}
+
+export async function updateMenuItem(values: UpdateMenuFormValues): Promise<MenuFormState> {
+  await requirePermission("menu.edit");
+  const parsed = menuUpdateSchema.safeParse(values);
+  if (!parsed.success) {
+    return { success: false, message: "Vui lòng kiểm tra lại thông tin món.", errors: validationErrors(parsed.error) };
+  }
+
+  const validation = await validateMenuInput(parsed.data);
+  if (!validation.parsed) return validation.result!;
+  const { input, category, price, allergens } = validation.parsed;
+  const { data: current, error: currentError } = await supabaseAdmin
+    .from("menu_items")
+    .select("image_url")
+    .eq("id", parsed.data.id)
+    .maybeSingle();
+  if (currentError) return { success: false, message: `Không thể đọc ảnh món hiện tại: ${currentError.message}` };
+  if (!current) return { success: false, message: "Không tìm thấy món cần sửa" };
+
+  const imageUrl = input.imageUrl || String(current.image_url ?? "/images/mon-1.jpg");
+  const { data, error } = await supabaseAdmin
+    .from("menu_items")
+    .update({
+      name: input.name,
+      description: input.description,
+      price,
+      category_id: category.id,
+      tags: input.tags,
+      allergens,
+      available: input.available,
+      image_url: imageUrl,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.id)
+    .select();
+  if (error) return { success: false, message: `Không thể cập nhật món: ${error.message}` };
+  if (data.length !== 1) return { success: false, message: "Không tìm thấy món cần sửa" };
+
+  const oldPath = menuStoragePathFromPublicUrl(String(current.image_url ?? ""));
+  const newPath = menuStoragePathFromPublicUrl(imageUrl);
+  if (oldPath && oldPath !== newPath) {
+    const { count, error: usageError } = await supabaseAdmin
       .from("menu_items")
-      .select("image_url")
-      .eq("id", input.id)
-      .maybeSingle();
-
-    if (currentError) {
-      console.error("Không thể đọc ảnh món hiện tại:", currentError.message);
-      return {
-        success: false,
-        message: `Không thể đọc ảnh món hiện tại: ${currentError.message}`,
-      };
-    }
-
-    const { data, error } = await supabaseAdmin
-      .from("menu_items")
-      .update({ ...payload, updated_at: new Date().toISOString() })
-      .eq("id", input.id)
-      .select("id")
-      .maybeSingle();
-
-    if (error) {
-      console.error("Không thể cập nhật món:", error.message);
-      return { success: false, message: `Không thể cập nhật món: ${error.message}` };
-    }
-    if (!data) {
-      return { success: false, message: "Không tìm thấy món để cập nhật." };
-    }
-
-    const oldPath = menuStoragePathFromPublicUrl(
-      String(current?.image_url ?? ""),
-    );
-    const newPath = menuStoragePathFromPublicUrl(input.imageUrl ?? "");
-    if (oldPath && oldPath !== newPath) {
-      const { error: deleteError } = await supabaseAdmin.storage
-        .from("menu-images")
-        .remove([oldPath]);
-      if (deleteError) {
-        console.error("Không thể xóa ảnh món cũ:", deleteError.message);
-        return {
-          success: false,
-          message: `Đã lưu món nhưng không thể xóa ảnh cũ: ${deleteError.message}`,
-          imagePersisted: true,
-        };
-      }
-    }
-  } else {
-    const { data: lastItem, error: orderError } = await supabaseAdmin
-      .from("menu_items")
-      .select("sort_order")
-      .eq("category_id", category.id)
-      .order("sort_order", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (orderError) {
-      console.error("Không thể lấy thứ tự món:", orderError.message);
-      return { success: false, message: `Không thể tạo món: ${orderError.message}` };
-    }
-
-    const { data, error } = await supabaseAdmin
-      .from("menu_items")
-      .insert({ ...payload, sort_order: Number(lastItem?.sort_order ?? 0) + 1 })
-      .select("id")
-      .maybeSingle();
-
-    if (error) {
-      console.error("Không thể thêm món:", error.message);
-      return { success: false, message: `Không thể thêm món: ${error.message}` };
-    }
-    if (!data) {
-      return { success: false, message: "Không thể xác nhận món đã được thêm." };
+      .select("id", { count: "exact", head: true })
+      .eq("image_url", String(current.image_url ?? ""));
+    if (usageError) return { success: false, message: `Đã lưu món nhưng không thể kiểm tra ảnh cũ: ${usageError.message}`, imagePersisted: true };
+    if ((count ?? 0) === 0) {
+      const { error: deleteError } = await supabaseAdmin.storage.from("menu-images").remove([oldPath]);
+      if (deleteError) return { success: false, message: `Đã lưu món nhưng không thể xóa ảnh cũ: ${deleteError.message}`, imagePersisted: true };
     }
   }
 
   revalidateMenu();
-  return {
-    success: true,
-    message: input.id ? "Đã cập nhật món." : "Đã thêm món.",
-    imagePersisted: true,
-  };
+  return { success: true, message: "Đã cập nhật món.", imagePersisted: true };
 }
 
 export async function reorderMenuItem(
@@ -440,55 +422,56 @@ export async function reorderMenuItem(
 }
 
 const categorySchema = z.object({
-  id: z.string().trim().optional(),
   name: z.string().trim().min(1, "Vui lòng nhập tên danh mục."),
   active: z.boolean(),
 });
+const categoryUpdateSchema = categorySchema.extend({ id: z.string().uuid("Mã danh mục không hợp lệ.") });
 
-export async function saveMenuCategory(
-  values: { id?: string; name: string; active: boolean },
-): Promise<MenuCategoryActionState> {
-  await requirePermission("menu.edit");
+async function validateCategoryInput(values: { name: string; active: boolean }, id?: string) {
   const parsed = categorySchema.safeParse(values);
-  if (!parsed.success) {
-    return { success: false, message: "Vui lòng kiểm tra lại danh mục.", errors: validationErrors(parsed.error) };
-  }
-  const slugResult = await uniqueCategorySlug(parsed.data.name, parsed.data.id);
-  if (!slugResult) {
-    return { success: false, message: "Tên danh mục không tạo được slug hợp lệ.", errors: { name: "Tên danh mục phải có ký tự chữ hoặc số." } };
-  }
-  if ("error" in slugResult) {
-    return {
-      success: false,
-      message: `Không thể kiểm tra slug danh mục: ${slugResult.error?.message ?? "Lỗi không xác định."}`,
-    };
-  }
+  if (!parsed.success) return { parsed: null, result: { success: false, message: "Vui lòng kiểm tra lại danh mục.", errors: validationErrors(parsed.error) } satisfies MenuCategoryActionState };
+  const slugResult = await uniqueCategorySlug(parsed.data.name, id);
+  if (!slugResult) return { parsed: null, result: { success: false, message: "Tên danh mục không tạo được slug hợp lệ.", errors: { name: "Tên danh mục phải có ký tự chữ hoặc số." } } satisfies MenuCategoryActionState };
+  if ("error" in slugResult) return { parsed: null, result: { success: false, message: `Không thể kiểm tra slug danh mục: ${slugResult.error?.message ?? "Lỗi không xác định."}` } satisfies MenuCategoryActionState };
+  return { parsed: { ...parsed.data, slug: slugResult.slug }, result: null };
+}
 
-  if (parsed.data.id) {
-    const { data, error } = await supabaseAdmin
-      .from("menu_categories")
-      .update({ name: parsed.data.name, slug: slugResult.slug, active: parsed.data.active })
-      .eq("id", parsed.data.id)
-      .select("id");
-    if (error) return { success: false, message: `Không thể sửa danh mục: ${error.message}` };
-    if (data.length !== 1) return { success: false, message: "Không tìm thấy danh mục để sửa." };
-  } else {
-    const { data: last, error: orderError } = await supabaseAdmin
-      .from("menu_categories")
-      .select("sort_order")
-      .order("sort_order", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (orderError) return { success: false, message: `Không thể tạo danh mục: ${orderError.message}` };
-    const { data, error } = await supabaseAdmin
-      .from("menu_categories")
-      .insert({ name: parsed.data.name, slug: slugResult.slug, active: parsed.data.active, sort_order: Number(last?.sort_order ?? 0) + 1 })
-      .select("id");
-    if (error) return { success: false, message: `Không thể thêm danh mục: ${error.message}` };
-    if (data.length !== 1) return { success: false, message: "Không thể xác nhận danh mục đã được thêm." };
-  }
+export async function createMenuCategory(values: { name: string; active: boolean }): Promise<MenuCategoryActionState> {
+  await requirePermission("menu.edit");
+  const validation = await validateCategoryInput(values);
+  if (!validation.parsed) return validation.result!;
+  const { data: last, error: orderError } = await supabaseAdmin
+    .from("menu_categories")
+    .select("sort_order")
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (orderError) return { success: false, message: `Không thể tạo danh mục: ${orderError.message}` };
+  const { data, error } = await supabaseAdmin
+    .from("menu_categories")
+    .insert({ name: validation.parsed.name, slug: validation.parsed.slug, active: validation.parsed.active, sort_order: Number(last?.sort_order ?? 0) + 1 })
+    .select("id");
+  if (error) return { success: false, message: `Không thể thêm danh mục: ${error.message}` };
+  if (data.length !== 1) return { success: false, message: "Không thể xác nhận danh mục đã được thêm." };
   revalidateMenu();
-  return { success: true, message: parsed.data.id ? "Đã sửa danh mục." : "Đã thêm danh mục." };
+  return { success: true, message: "Đã thêm danh mục." };
+}
+
+export async function updateMenuCategory(values: { id: string; name: string; active: boolean }): Promise<MenuCategoryActionState> {
+  await requirePermission("menu.edit");
+  const parsed = categoryUpdateSchema.safeParse(values);
+  if (!parsed.success) return { success: false, message: "Vui lòng kiểm tra lại danh mục.", errors: validationErrors(parsed.error) };
+  const validation = await validateCategoryInput({ name: parsed.data.name, active: parsed.data.active }, parsed.data.id);
+  if (!validation.parsed) return validation.result!;
+  const { data, error } = await supabaseAdmin
+    .from("menu_categories")
+    .update({ name: parsed.data.name, slug: validation.parsed.slug, active: parsed.data.active, updated_at: new Date().toISOString() })
+    .eq("id", parsed.data.id)
+    .select("id");
+  if (error) return { success: false, message: `Không thể sửa danh mục: ${error.message}` };
+  if (data.length !== 1) return { success: false, message: "Không tìm thấy danh mục để sửa." };
+  revalidateMenu();
+  return { success: true, message: "Đã sửa danh mục." };
 }
 
 export async function updateMenuCategoryActive(id: string, active: boolean): Promise<MenuCategoryActionState> {

@@ -24,7 +24,6 @@ export async function createClientForServer() {
               cookieStore.set(name, value, options);
             }
           } catch {
-            console.warn("[admin-auth] Không thể ghi cookie trong Server Component");
           }
         },
       },
